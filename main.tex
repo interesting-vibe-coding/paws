@@ -1,14 +1,299 @@
-\documentclass{article}
-\usepackage{graphicx} % Required for inserting images
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage{ctex}
 
-\title{terminal_companion}
-\author{yupeng xie}
+\lstset{
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  frame=single,
+  framesep=4pt,
+  backgroundcolor=\color{gray!8},
+  rulecolor=\color{gray!40},
+  showstringspaces=false,
+  columns=fullflexible,
+}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!60!black,
+  urlcolor=blue!60!black,
+}
+
+\title{Terminal Companion: \\ \large 一个为 AI Coding Agent 等待场景设计的终端陪伴工具}
+\author{Yupeng Xie}
 \date{May 2026}
 
 \begin{document}
 
 \maketitle
 
-\section{Introduction}
+\begin{abstract}
+本文记录一个面向 AI coding agent (Claude Code 等) 用户的小工具的设计调研。
+核心问题是: 当 agent 在后台工作时, 用户处于一种"想守着但又闲着"的状态,
+玩手机会消耗精力, 离开终端又错过 agent 的输入请求。
+我们的方案是在终端内开一个小游戏 pane, agent 工作时玩,
+agent 需要输入时游戏自动暂停、焦点切回 agent。
+本文调研了现有生态、各类终端模拟器的能力, 最终基于 Kaku 终端给出了最小可行设计。
+\end{abstract}
+
+\section{动机}
+
+Vibe coding 时代有一个被广泛忽视的体验缺口:
+\textbf{agent 工作时用户的闲暇时间}。
+
+主流 AI coding 工具 (Claude Code、Cursor、Devin) 都假设用户应该
+"启动 agent → 离开终端 → 等通知召回"。
+但实际使用中, 很多用户更倾向于守在终端旁边, 一方面 agent 频繁需要确认输入,
+另一方面离开终端再回来本身有 context 切换成本。
+
+这种"守着但闲着"的状态目前无解:
+\begin{itemize}[leftmargin=*]
+  \item 切到浏览器/手机 → 消耗精力, 难收回来
+  \item 看 agent 输出 → 速度太慢, 不需要每一帧都看
+  \item 干别的工作 → 上下文切换贵
+\end{itemize}
+
+理想方案: 一个\textbf{低认知负担、可随时打断}的活动, 物理上和 agent 共存于同一终端。
+
+\section{现有生态调研}
+
+\subsection{终端宠物 / Ambient Companion}
+
+经典选项基本都是 90 年代装饰品, \textbf{完全不感知 agent 状态}:
+\begin{itemize}[leftmargin=*]
+  \item \texttt{oneko}, \texttt{bongo cat}: 跟随光标/按键的纯反馈型, 无状态
+  \item \texttt{asciiquarium}: 全屏 ASCII 水族箱, 抢焦点, 不适合穿插
+  \item \texttt{cbonsai}: 慢慢生长的盆景, 轻量、可后台, 部分 vibe coding 用户拿它当"思考动画"
+  \item \texttt{pipes.sh}, \texttt{nyancat}: 纯装饰
+\end{itemize}
+
+\subsection{真正的终端游戏}
+
+按"是否适合被随时打断"分类:
+\begin{itemize}[leftmargin=*]
+  \item \textbf{适合}: \texttt{2048-cli}, \texttt{nudoku}, \texttt{greed} —— 回合制, 状态轻
+  \item \textbf{不适合}: \texttt{nsnake}, \texttt{ninvaders}, \texttt{bastet} —— 实时类,
+        被打断时角色就死了
+  \item \textbf{特殊}: \texttt{ttyper} (打字练习) 会和 agent prompt 抢键盘, 直接 conflict
+\end{itemize}
+
+结论: \textbf{回合制游戏才是这个场景的最优形态}。
+
+\subsection{AI Agent 等待场景的专用工具}
+
+\textbf{这个赛道几乎是空白}。
+搜 GitHub \texttt{claude waiting}, \texttt{agent idle game}, \texttt{while-llm-thinks}
+基本没有专门项目。Claude Code / Cursor / Devin 社区主流讨论都是"加速 agent"或"异步通知",
+没人针对"守在终端但闲着"做设计。
+
+\subsection{桌面端的有益参照}
+
+\textbf{RunCat} (macOS menubar 小猫, 根据 CPU 改变跑速) 在 coding 圈接受度很高,
+被广泛用作"agent 是否在干活"的可视化指示器。
+这个理念可以移植到终端宠物形态: \textbf{让宠物订阅 agent 状态, agent 思考时活跃,
+需要输入时优雅让位}。这是本项目的核心差异化点。
+
+\section{技术架构选项}
+
+要在终端里实现"游戏 pane + agent pane 共存", 物理上必须分屏。三个层次的分屏方案:
+
+\subsection{方案 A: 终端模拟器原生 split}
+
+每个终端模拟器 (iTerm2, Kitty, Ghostty, Kaku) 都有自己的 split UI 和外部控制 API,
+但\textbf{各家 API 互不兼容}。
+
+\subsection{方案 B: 终端复用器 (tmux)}
+
+tmux 在任何终端内再做一层分屏, 通过 \texttt{tmux split-window / send-keys / select-pane} 控制。
+优点: 一份代码跨所有终端。缺点: 用户需要装 tmux, UI 是 tmux 自己的。
+
+\subsection{方案 C: 独立窗口 + 跨进程 IPC}
+
+游戏开新终端窗口, 焦点切换走 AppleScript / Hammerspoon。
+跨进程, IPC 复杂, 体验割裂, 已排除。
+
+\subsection{决策: 选 Kaku 原生 split}
+
+用户长期用 Kaku 终端 (tw93 出品, 5k+ stars, Rust, 主打 AI coding 优化),
+不需要跨终端支持。
+\textbf{Kaku 是 WezTerm 的 deeply customized fork}, 因此继承了 WezTerm 完整的
+外部控制 CLI 和 Lua hook 体系。这让方案 A 在 Kaku 上变得非常顺滑,
+不需要再依赖 tmux。
+
+\section{Kaku 代码调研结果}
+
+\subsection{分屏: 真 PTY, 不是纯 UI 窗口}
+
+Kaku 沿用 WezTerm 的 \texttt{mux} 架构:
+\texttt{Mux $\to$ Window $\to$ Tab $\to$ 二叉树 PositionedPane},
+每个 pane 持有独立 PTY。
+关键文件: \texttt{mux/src/tab.rs}, \texttt{mux/src/localpane.rs}.
+
+\begin{lstlisting}[language=Rust]
+// mux/src/tab.rs
+pub struct Tab { inner: Mutex<TabInner>, tab_id: TabId }
+pub struct PositionedPane { pub pane: Arc<dyn Pane>, ... }
+pub enum SplitDirection { Horizontal, Vertical }
+
+// mux/src/localpane.rs
+use portable_pty::{Child, MasterPty, PtySize};
+pty: Mutex<Box<dyn MasterPty>>,
+\end{lstlisting}
+
+\textbf{含义}: pane 里能跑任何 ANSI 终端游戏, 不需要为 Kaku 做特殊适配。
+
+\subsection{外部控制 CLI: 完整继承 WezTerm}
+
+\texttt{kaku cli} 子命令一应俱全, 底层是 Unix socket:
+
+\begin{lstlisting}[language=bash]
+kaku cli split-pane --right --percent 30 -- /path/to/game
+kaku cli activate-pane --pane-id N
+kaku cli send-text --pane-id N --no-paste "p"
+kaku cli get-text --pane-id N
+kaku cli list --format json
+kaku cli kill-pane --pane-id N
+\end{lstlisting}
+
+\textbf{含义}: 任何脚本都能从外部驱动 Kaku, 不需要写 Rust 代码, 不需要造 IPC 通道。
+
+\subsection{Pane 内进程 $\to$ Kaku 的反向通道: OSC 1337}
+
+Pane 里的进程可以通过 OSC 1337 \texttt{SetUserVar} 序列发信号给 Kaku,
+Kaku 用 Lua \texttt{user-var-changed} hook 接住:
+
+\begin{lstlisting}[language=bash]
+# pane 内任何进程
+printf '\033]1337;SetUserVar=%s=%s\007' cc_state \
+       $(echo -n waiting | base64)
+\end{lstlisting}
+
+\begin{lstlisting}[language={[5.2]Lua}]
+-- ~/.config/kaku/kaku.lua
+wezterm.on('user-var-changed', function(window, pane, name, value)
+  if name == 'cc_state' and value == 'waiting' then
+    -- 切焦点回 CC + 给游戏 pane 发暂停键
+  end
+end)
+\end{lstlisting}
+
+\subsection{Hook 系统: Lua 事件齐全, 但无 CC 专属}
+
+Kaku 注册的事件包括 \texttt{window-focus-changed}, \texttt{update-status},
+\texttt{user-var-changed} 等 (见 \texttt{kaku-gui/src/termwindow/mod.rs}),
+全仓 \texttt{grep -i claude} 只命中 AI chat 引擎的 system prompt 文案,
+\textbf{没有针对 Claude Code 进程的特殊探测}。
+"built for AI coding" 主要指内置的 AI chat 侧边栏, 不是 CC pane 集成。
+所以"CC 在等输入"的信号需要自己造。
+
+\subsection{技术栈}
+
+\texttt{wgpu} (GPU 渲染) + 仓内自研 window crate (非 winit/egui) +
+\texttt{mlua} (Lua 配置)。
+对于本项目无影响: pane 里跑的是真 PTY 里的 TUI, 任何 ANSI 程序原样可用。
+
+\section{最小可行设计 (MVP)}
+
+\subsection{核心交互}
+
+\begin{itemize}[leftmargin=*]
+  \item \textbf{启动}: 一条命令开 Kaku 右侧 pane 跑游戏, 左侧 pane 跑 Claude Code
+  \item \textbf{暂停 (自动)}: CC 触发 Notification hook $\to$ 调 \texttt{kaku cli}
+        切焦点回 CC + 给游戏 pane 发暂停键
+  \item \textbf{暂停 (手动)}: 用户随时可按游戏自带的暂停键
+  \item \textbf{恢复}: \textbf{显式}, 用户按 Kaku 快捷键切回游戏 pane
+        (不自动, 因为用户可能还想看 CC 输出)
+\end{itemize}
+
+\subsection{三个组件}
+
+\paragraph{1. 启动脚本 (fish)}
+开 Kaku 右侧 pane, 启动游戏, 把游戏 pane id 和 CC pane id 写到 state 文件
+(如 \texttt{/tmp/kaku-game-state.json}).
+
+\paragraph{2. Claude Code Notification hook 改造}
+读 state 文件, 调:
+\begin{lstlisting}[language=bash]
+kaku cli activate-pane --pane-id $CC_PANE_ID
+kaku cli send-text --pane-id $GAME_PANE_ID --no-paste "p"
+\end{lstlisting}
+
+\paragraph{3. Kaku Lua 配置}
+绑定快捷键 (如 \texttt{CMD+G}) 切回游戏 pane.
+
+\subsection{游戏选型}
+
+MVP 阶段直接套现成游戏验证链路, 推荐 \textbf{\texttt{2048-cli}}:
+回合制、状态轻、按 \texttt{q} 优雅退出、按任意键继续。
+其他备选: \texttt{nudoku}, \texttt{greed}.
+
+链路验证后再决定是否自己写游戏。
+自己写的好处: 可以内建"暂停态" UI (显示 "Claude Code needs input -- press CMD+G to resume"),
+而不是粗暴 SIGSTOP.
+
+\subsection{为什么这个设计比之前的 tmux + Unix socket 方案干净}
+
+之前曾考虑 tmux + 自定义 Unix socket 做 IPC.
+基于 Kaku 现有能力, \textbf{\texttt{kaku cli} 本身就是 IPC},
+不需要再造一层通道, 也不需要 wrapper 拦 CC 的 stdin/stdout.
+整个项目从"系统编程"降级成"几个脚本 + Lua 配置".
+
+\section{未来扩展}
+
+\subsection{V2: 状态感知的宠物}
+
+抄 RunCat 理念, 让一个轻量宠物 (cbonsai 风格的盆景, 或自绘的小猫)
+订阅 CC 的全部 hook (\texttt{Notification}, \texttt{Stop}, \texttt{SubagentStop}, \texttt{PreToolUse}),
+不同状态用不同动画:
+\begin{itemize}[leftmargin=*]
+  \item Agent 在跑 tool $\to$ 宠物活跃
+  \item Agent 在等输入 $\to$ 宠物挥手提醒
+  \item Agent 完成 $\to$ 宠物睡觉
+\end{itemize}
+
+\subsection{V3: 多游戏 launcher}
+
+一个 launcher pane 列出可玩游戏 (2048, 数独, 五子棋, 文字冒险),
+选一个就 \texttt{kaku cli split-pane} 拉起来. 每个游戏的暂停键和状态持久化策略
+统一封装成 plugin.
+
+\subsection{开放问题}
+
+\begin{itemize}[leftmargin=*]
+  \item 长任务期间 (几十分钟) 游戏进程的 crash recovery
+  \item 是否给 Kaku 提 PR, 加一个 "agent-aware" 的官方 hook 抽象
+  \item 多个 CC 窗口并发时, 如何决定切到哪一个的 pane
+\end{itemize}
+
+\section{结论}
+
+这个看似复杂的需求, 在 Kaku 上的实现路径\textbf{出乎意料地干净}:
+
+\begin{itemize}[leftmargin=*]
+  \item 不需要写 Rust, 不改 Kaku 源码
+  \item 不需要自己造 IPC, \texttt{kaku cli} 就是 IPC
+  \item 不需要从零写游戏, 现成 ANSI 游戏可直接复用
+  \item 核心实现就是 \textbf{一个 fish 脚本 + 一个 Notification hook + 一段 Lua 配置}
+\end{itemize}
+
+更大的价值不在工程量, 而在它\textbf{填补了一个被整个 vibe coding 生态忽略的体验缺口}:
+针对"守在终端但闲着"这个心理状态做设计, 而不是把用户赶到通知中心去。
+
+\appendix
+\section{参考资料}
+
+\begin{itemize}[leftmargin=*]
+  \item Kaku 终端: \url{https://github.com/tw93/kaku}
+  \item WezTerm (上游): \url{https://github.com/wezterm/wezterm}
+  \item WezTerm CLI 文档: \url{https://wezterm.org/cli/cli/index.html}
+  \item OSC 1337 SetUserVar: \url{https://wezterm.org/config/lua/window-events/user-var-changed.html}
+  \item Claude Code hooks: \url{https://docs.claude.com/en/docs/claude-code/hooks}
+  \item 2048-cli: \url{https://github.com/tiehuis/2048-cli}
+\end{itemize}
 
 \end{document}
