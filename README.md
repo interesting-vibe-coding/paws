@@ -45,22 +45,37 @@ The terminal owns the tabs, so tab control lives in the terminal's Lua layer —
 
 ## Setup
 
+### The easy way — let your agent install it
+
+Paws ships an install skill. Clone the repo and just ask your AI coding agent:
+
+> "Install Paws using the skill in `paws/skills/paws-install/SKILL.md`."
+
+The agent merges the Lua into your Kaku config, wires the hook, installs a game,
+and tells you to reload. No manual editing. (Kiro reads `SKILL.md` natively;
+Claude Code can read it too.)
+
+### The manual way
+
 1. Add [`lua/paws.lua`](lua/paws.lua) to your `~/.config/kaku/kaku.lua` (before `return config`).
-2. Wire [`hooks/kiro/paws-signal.sh`](hooks/kiro/paws-signal.sh) as a `stop` hook in your Kiro agent config:
+2. Wire [`hooks/kiro/paws-signal.sh`](hooks/kiro/paws-signal.sh) as a `stop` hook in your Kiro agent config (use an **absolute** path):
    ```json
    "hooks": { "stop": [{ "command": "/absolute/path/to/paws-signal.sh" }] }
    ```
-3. Reload Kaku (CMD+Shift+R). Press **CMD+G** to start playing.
+3. `brew install c2048`, then reload Kaku (CMD+Shift+R) and press **CMD+G**.
 
 ## Roadmap
 
+### Done
 - [x] Native CMD+G spawn + toggle (pure Lua, `wezterm.mux`, tab-based)
-- [x] Auto-switch-back via OSC user var + `user-var-changed`
-- [ ] Rust wrapper: pause overlay + countdown + auto-return mode
-- [ ] Multi-game rotation (daily / hourly random pick)
-- [ ] Pet mode (ambient companion reacting to agent state)
-- [ ] Claude Code support
-- [ ] `brew install paws`
+- [x] Auto-switch-back when the agent finishes (OSC user var + `user-var-changed`)
+
+### Next (priority order)
+1. **One-step install** — an agent skill so your AI (Kiro / Claude Code) installs Paws for you: it merges the Lua into your Kaku config, wires the hook, and installs a game. No manual editing.
+2. **Auto-navigation mode** — switch to the game when the agent *starts* working, back when it needs you (`userPromptSubmit` → game, `stop` → agent). Toggle between manual and auto.
+3. **More games** — a small set of games actually worth playing; drop 2048 once they land.
+4. **Rust wrapper** — host games + a pause overlay + countdown for auto-return.
+5. **Claude Code support** — notification / stop hooks (can come last).
 
 ## Design doc
 
