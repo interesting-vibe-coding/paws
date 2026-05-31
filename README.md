@@ -24,13 +24,15 @@ Built for the overlooked moment in vibe coding: you want to stay near the termin
 
 | Key | Action |
 |-----|--------|
-| **CMD+G** | Spawn the game tab (first press) or toggle between agent ↔ game |
-| **CMD+SHIFT+G** | Toggle auto-navigation mode on/off |
+| **CMD+G** | First press: pick a game (🎲 Random / 2048 / Sudoku / Tetris). After that: toggle agent ↔ game. |
+| **CMD+SHIFT+P** | Re-open the picker to change the game. |
+
+> `CMD+SHIFT+G` is intentionally avoided — Kaku already binds it (lazygit).
 
 ### Modes
 
-- **Manual mode** (default) — press CMD+G yourself to jump to the game. When the agent finishes (`stop`), Paws auto-returns you to the agent tab.
-- **Auto mode** — the agent jumps you to the game when it starts working (`userPromptSubmit`) and back to the agent when it finishes (`stop`). Fully hands-free.
+- **Manual** — press CMD+G to jump to the game. When any agent session finishes (`stop`), Paws brings you back to that session's tab.
+- **Auto** — once a game is open, the agent sends you to it when it starts working (`userPromptSubmit`) and back when it finishes. Hands-free.
 
 The game lives in a separate **tab**, so it's naturally full-window and immersive — your existing pane/split layout is never disturbed.
 
@@ -86,16 +88,17 @@ Claude Code can read it too.)
 ## Roadmap
 
 ### Done
-- [x] Native CMD+G spawn + toggle (pure Lua, `wezterm.mux`, tab-based)
-- [x] Auto-switch-back when the agent finishes (OSC user var + `user-var-changed`)
-- [x] Auto-navigation mode (CMD+SHIFT+G toggle; `userPromptSubmit` → game, `stop` → agent)
+- [x] Native tab-based switching (pure Lua, `wezterm.mux`, `wezterm.GLOBAL`)
+- [x] Game picker via `InputSelector` (CMD+G first run; CMD+SHIFT+P to re-pick)
 - [x] One-step install via agent skill
 - [x] `paws` Rust launcher with daily game rotation (2048 / sudoku / tetris)
 
 ### Next (priority order)
-1. **Pause overlay** — when the agent finishes, pause the game and show an overlay + countdown for auto-return (the Rust wrapper's next layer).
-2. **More & better games** — grow the curated set; drop 2048 once richer games land.
-3. **Claude Code support** — notification / stop hooks.
+1. **Verify auto-return on device** — confirm the OSC `user-var` signal from the
+   Kiro hook reaches Kaku (`userPromptSubmit` → game, `stop` → agent).
+2. **Pause overlay** — pause the game and show an overlay + countdown for auto-return.
+3. **More & better games** — grow the curated set; drop 2048 once richer games land.
+4. **Claude Code support** — notification / stop hooks.
 
 ## Design doc
 

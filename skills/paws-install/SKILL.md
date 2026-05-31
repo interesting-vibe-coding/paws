@@ -82,11 +82,11 @@ chmod +x <REPO>/hooks/kiro/paws-signal.sh
 
 ## 5. Finish
 
-Tell the user to **reload Kaku (CMD+Shift+R)**, then:
-- **CMD+G** — open the game in its own tab (first press) / toggle agent ↔ game.
-- **CMD+SHIFT+G** — toggle auto-navigation: in auto mode the agent sends them to
-  the game when it starts working and back when it finishes; in manual mode it
-  only auto-returns on finish.
+Tell the user to **reload Kaku (CMD+Shift+R)** — Kaku does NOT auto-reload — then:
+- **CMD+G** — first press opens a game picker; after that it toggles agent ↔ game.
+- **CMD+SHIFT+P** — re-open the picker to change the game.
+
+(Don't use CMD+SHIFT+G — Kaku already binds it to lazygit.)
 
 ## Verify
 
