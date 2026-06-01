@@ -89,17 +89,18 @@ Claude Code can read it too.)
 ## Roadmap
 
 ### Done
-- [x] Native tab-based switching (pure Lua, `wezterm.mux`, `wezterm.GLOBAL`)
-- [x] Game picker via `InputSelector` (CMD+G first run; CMD+SHIFT+P to re-pick)
-- [x] One-step install via agent skill
-- [x] Rust wrapper: hosts the game **centered** in a PTY
-- [x] Live multi-session status HUD (running / done, flashes on finish)
-- [x] [Jump High](https://github.com/MisterBrookT/jump-high) — a Jump King-style terminal game (ratatui)
+- [x] Tab-based switching (Lua `wezterm.mux`)
+- [x] Game picker (CMD+G / CMD+SHIFT+P)
+- [x] Rust wrapper: centered PTY + live session HUD
+- [x] [Jump High](https://github.com/MisterBrookT/jump-high) — Jump King-style charge-jump game
+- [x] 🌍 地球Online — real-life side quests (exercise, call a friend, go outside)
+- [x] 🎲 Random rotation (switches game every 5 hours)
+- [x] Install via agent skill
 
 ### Next
-1. **More games** — grow the curated set with fun, interruptible games.
-2. **Claude Code support** — same per-session state hook.
-3. **`brew install paws`** — Homebrew formula for one-command install.
+1. More games.
+2. Claude Code support.
+3. `brew install paws`.
 
 ## Design doc
 

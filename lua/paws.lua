@@ -15,9 +15,21 @@ local wezterm = require 'wezterm'
 
 local PAWS_SHELL = os.getenv('SHELL') or '/bin/sh'  -- login shell, so PATH resolves
 local PAWS_CHOICES = {
+  { label = '🎲 Random (rotates every few hours)', id = 'random' },
   { label = 'Tetris (俄罗斯方块)', id = 'tetris' },
   { label = 'Jump High (跳跳跳)', id = 'jump-high' },
+  { label = '🌍 地球Online (real-life side quests)', id = '--earth-online' },
 }
+
+local function resolve_game(id)
+  if id ~= 'random' then return id end
+  local real_games = {}
+  for _, c in ipairs(PAWS_CHOICES) do
+    if c.id ~= 'random' then table.insert(real_games, c.id) end
+  end
+  local slot = math.floor(os.time() / (5 * 3600))
+  return real_games[(slot % #real_games) + 1]
+end
 
 -- wezterm.mux.get_tab raises if the tab is gone; make it return nil instead
 local function paws_tab(tab_id)
@@ -29,7 +41,8 @@ end
 -- spawn the game tab running `cmd`; remember the agent tab; activate the game
 local function paws_spawn(window, agent_tab_id, cmd)
   if agent_tab_id then wezterm.GLOBAL.paws_agent_tab = agent_tab_id end
-  local tab = window:mux_window():spawn_tab { args = { PAWS_SHELL, '-l', '-c', cmd } }
+  local game = resolve_game(cmd)
+  local tab = window:mux_window():spawn_tab { args = { PAWS_SHELL, '-l', '-c', 'paws ' .. game } }
   wezterm.GLOBAL.paws_game_tab = tab:tab_id()
   tab:activate()
 end

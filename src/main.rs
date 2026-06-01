@@ -1,3 +1,5 @@
+mod earth_online;
+
 use std::env;
 use std::fs;
 use std::io::{self, Read, Write};
@@ -41,6 +43,11 @@ const GAMES: &[Game] = &[
         cmd: "jump-high",
         brew_hint: "cargo install --git https://github.com/MisterBrookT/jump-high",
     },
+    Game {
+        name: "地球Online",
+        cmd: "paws --earth-online",
+        brew_hint: "(built-in)",
+    },
 ];
 
 fn is_installed(cmd: &str) -> bool {
@@ -62,6 +69,11 @@ fn pick_index(day: u64, count: usize) -> usize {
 }
 
 fn main() -> io::Result<()> {
+    // --earth-online mode (built-in)
+    if env::args().any(|a| a == "--earth-online") {
+        return earth_online::run();
+    }
+
     // --list mode
     if env::args().any(|a| a == "--list") {
         println!("Paws game list:");
