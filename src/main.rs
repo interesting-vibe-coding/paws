@@ -43,10 +43,10 @@ struct Game {
 
 const GAMES: &[Game] = &[
     Game { name: "Tetris", cmd: "tetris", icon: "🎮", brew_hint: "brew install vitetris" },
-    Game { name: "Dog Jump", cmd: "jump-high", icon: "🐕", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
-    Game { name: "Pinball", cmd: "pinball", icon: "🕹️", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
+    Game { name: "Dog Jump", cmd: "jump-high", icon: "🎮", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
+    Game { name: "Pinball", cmd: "pinball", icon: "🎮", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
     Game { name: "Earth Online", cmd: "earth-online", icon: "🌍", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
-    Game { name: "Poetry", cmd: "poetry", icon: "🪶", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
+    Game { name: "Poetry", cmd: "poetry", icon: "📖", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
 ];
 
 fn is_installed(cmd: &str) -> bool {
