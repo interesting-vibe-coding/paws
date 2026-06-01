@@ -2,7 +2,7 @@ use std::env;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},
@@ -20,6 +20,7 @@ use ratatui::{
 };
 
 const SIGNAL_PATH: &str = "/tmp/paws-signal";
+const SESSIONS_DIR: &str = "/tmp/paws-sessions";
 const GAME_COLS: u16 = 80;
 const GAME_ROWS: u16 = 24;
 const POLL_MS: u64 = 50;
@@ -59,11 +60,6 @@ fn epoch_day() -> u64 {
 
 fn pick_index(day: u64, count: usize) -> usize {
     (day as usize) % count
-}
-
-enum AppState {
-    Running,
-    Paused { started: Instant },
 }
 
 fn main() -> io::Result<()> {
@@ -113,11 +109,15 @@ fn main() -> io::Result<()> {
         .slave
         .spawn_command(cmd)
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-    drop(pair.slave); // close slave side in parent
+    drop(pair.slave);
 
-    let mut pty_writer = pair.master.take_writer()
+    let mut pty_writer = pair
+        .master
+        .take_writer()
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
-    let mut pty_reader = pair.master.try_clone_reader()
+    let mut pty_reader = pair
+        .master
+        .try_clone_reader()
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
 
     // VT100 parser for game screen
@@ -144,8 +144,8 @@ fn main() -> io::Result<()> {
     let backend = CrosstermBackend::new(io::stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    let mut state = AppState::Running;
-    let result = run_loop(&mut terminal, &parser, &mut pty_writer, &mut state);
+    let mut paused = false;
+    let result = run_loop(&mut terminal, &parser, &mut pty_writer, &mut paused);
 
     // Cleanup
     disable_raw_mode()?;
@@ -159,24 +159,17 @@ fn run_loop(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     parser: &Arc<Mutex<vt100::Parser>>,
     pty_writer: &mut Box<dyn Write + Send>,
-    state: &mut AppState,
+    paused: &mut bool,
 ) -> io::Result<()> {
     loop {
         // Draw
         terminal.draw(|f| {
             draw_game(f, parser);
-            if let AppState::Paused { started } = state {
-                draw_overlay(f, *started);
+            draw_hud(f);
+            if *paused {
+                draw_pause_banner(f);
             }
         })?;
-
-        // Check countdown expiry
-        if let AppState::Paused { started } = state {
-            if started.elapsed() >= Duration::from_secs(3) {
-                ack_and_exit()?;
-                return Ok(());
-            }
-        }
 
         // Poll events
         if event::poll(Duration::from_millis(POLL_MS))? {
@@ -184,37 +177,41 @@ fn run_loop(
                 if key.kind != KeyEventKind::Press {
                     continue;
                 }
-                match state {
-                    AppState::Running => {
-                        // Forward key to PTY
-                        if let Some(bytes) = key_to_bytes(key.code) {
-                            let _ = pty_writer.write_all(&bytes);
-                            let _ = pty_writer.flush();
-                        }
+                if *paused {
+                    if key.code == KeyCode::Enter {
+                        // Resume game
+                        let _ = pty_writer.write_all(b"p");
+                        let _ = pty_writer.flush();
+                        *paused = false;
                     }
-                    AppState::Paused { .. } => {
-                        if key.code == KeyCode::Enter {
-                            ack_and_exit()?;
-                            return Ok(());
-                        }
+                } else {
+                    // Forward key to PTY
+                    if let Some(bytes) = key_to_bytes(key.code) {
+                        let _ = pty_writer.write_all(&bytes);
+                        let _ = pty_writer.flush();
                     }
                 }
             }
         }
 
         // Poll signal file
-        if let AppState::Running = state {
-            if let Ok(content) = fs::read_to_string(SIGNAL_PATH) {
-                let sig = content.trim();
-                if sig == "done" {
-                    let _ = fs::remove_file(SIGNAL_PATH);
-                    *state = AppState::Paused {
-                        started: Instant::now(),
-                    };
-                } else if sig == "busy" {
-                    let _ = fs::remove_file(SIGNAL_PATH);
-                    // no-op, game is already showing
-                }
+        if let Ok(content) = fs::read_to_string(SIGNAL_PATH) {
+            let sig = content.trim();
+            if sig == "done" && !*paused {
+                let _ = fs::remove_file(SIGNAL_PATH);
+                // Pause the game
+                let _ = pty_writer.write_all(b"p");
+                let _ = pty_writer.flush();
+                *paused = true;
+            } else if sig == "busy" && *paused {
+                let _ = fs::remove_file(SIGNAL_PATH);
+                // Resume the game
+                let _ = pty_writer.write_all(b"p");
+                let _ = pty_writer.flush();
+                *paused = false;
+            } else if sig == "busy" || sig == "done" {
+                // Signal doesn't change state, just clean up
+                let _ = fs::remove_file(SIGNAL_PATH);
             }
         }
     }
@@ -272,55 +269,83 @@ fn draw_game(f: &mut Frame, parser: &Arc<Mutex<vt100::Parser>>) {
     f.render_widget(paragraph, game_area);
 }
 
-fn draw_overlay(f: &mut Frame, started: Instant) {
+fn draw_pause_banner(f: &mut Frame) {
     let area = f.area();
-    let elapsed = started.elapsed().as_secs();
-    let remaining = 3u64.saturating_sub(elapsed);
+    let banner_w = 34u16.min(area.width);
+    let banner_h = 3u16.min(area.height);
+    let banner_area = centered_rect(banner_w, banner_h, area);
 
-    let overlay_w = 30u16.min(area.width);
-    let overlay_h = 7u16.min(area.height);
-    let overlay_area = centered_rect(overlay_w, overlay_h, area);
-
-    // Semi-transparent overlay (dark bg)
-    f.render_widget(Clear, overlay_area);
+    f.render_widget(Clear, banner_area);
     let block = Block::bordered()
         .style(Style::default().bg(Color::Rgb(30, 30, 40)).fg(Color::White));
-
-    let countdown = format!("{}...", remaining);
-    let text = vec![
-        Line::from(""),
-        Line::from(Span::styled(
-            "🐾 Agent 完成了",
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            "按 Enter 返回 Agent",
-            Style::default().fg(Color::White),
-        )),
-        Line::from(Span::styled(
-            countdown,
-            Style::default().fg(Color::Gray),
-        )),
-    ];
-
+    let text = vec![Line::from(Span::styled(
+        "🐾 Agent 完成了 · 切回时继续",
+        Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
+    ))];
     let paragraph = Paragraph::new(text)
         .block(block)
         .alignment(Alignment::Center);
-    f.render_widget(paragraph, overlay_area);
+    f.render_widget(paragraph, banner_area);
+}
+
+fn draw_hud(f: &mut Frame) {
+    let area = f.area();
+    let entries = match fs::read_dir(SESSIONS_DIR) {
+        Ok(rd) => rd,
+        Err(_) => return,
+    };
+
+    let mut running = 0u16;
+    let mut done = 0u16;
+    for entry in entries.flatten() {
+        if let Ok(content) = fs::read_to_string(entry.path()) {
+            match content.trim() {
+                "busy" => running += 1,
+                "done" => done += 1,
+                _ => {}
+            }
+        }
+    }
+
+    if running == 0 && done == 0 {
+        return;
+    }
+
+    let mut spans = Vec::new();
+    if running > 0 {
+        spans.push(Span::styled(
+            format!("● {} running", running),
+            Style::default().fg(Color::Yellow),
+        ));
+    }
+    if running > 0 && done > 0 {
+        spans.push(Span::raw("  "));
+    }
+    if done > 0 {
+        spans.push(Span::styled(
+            format!("✓ {} done", done),
+            Style::default().fg(Color::Green),
+        ));
+    }
+
+    let line = Line::from(spans);
+    let text_width = line.width() as u16;
+    let hud_area = Rect::new(
+        area.width.saturating_sub(text_width + 1),
+        0,
+        text_width + 1,
+        1,
+    );
+    let paragraph = Paragraph::new(vec![line]).alignment(Alignment::Right);
+    f.render_widget(paragraph, hud_area);
 }
 
 fn centered_rect(w: u16, h: u16, area: Rect) -> Rect {
     let x = area.x + area.width.saturating_sub(w) / 2;
     let y = area.y + area.height.saturating_sub(h) / 2;
     Rect::new(x, y, w.min(area.width), h.min(area.height))
-}
-
-fn ack_and_exit() -> io::Result<()> {
-    fs::write(SIGNAL_PATH, "done")?;
-    Ok(())
 }
 
 fn key_to_bytes(code: KeyCode) -> Option<Vec<u8>> {
@@ -354,7 +379,6 @@ fn vt_color_to_ratatui(color: vt100::Color) -> Color {
 }
 
 fn unicode_width(s: &str) -> usize {
-    // Simple: count chars. For CJK we'd need unicode-width crate but keep deps minimal.
     s.chars().count()
 }
 
