@@ -75,17 +75,22 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
-    // Pick game
-    let installed: Vec<&Game> = GAMES.iter().filter(|g| is_installed(g.cmd)).collect();
-    if installed.is_empty() {
-        println!("🐾 No games installed! Install one to play:");
-        for g in GAMES {
-            println!("  {} → {}", g.name, g.brew_hint);
+    // Pick game: explicit arg or daily rotation
+    let explicit_cmd = env::args().nth(1).filter(|a| !a.starts_with('-'));
+    let game_cmd: String = if let Some(cmd) = explicit_cmd {
+        cmd
+    } else {
+        let installed: Vec<&Game> = GAMES.iter().filter(|g| is_installed(g.cmd)).collect();
+        if installed.is_empty() {
+            println!("🐾 No games installed! Install one to play:");
+            for g in GAMES {
+                println!("  {} → {}", g.name, g.brew_hint);
+            }
+            return Ok(());
         }
-        return Ok(());
-    }
-    let idx = pick_index(epoch_day(), installed.len());
-    let game = installed[idx];
+        let idx = pick_index(epoch_day(), installed.len());
+        installed[idx].cmd.to_string()
+    };
 
     // Spawn game in PTY
     let pty_system = NativePtySystem::default();
@@ -98,7 +103,7 @@ fn main() -> io::Result<()> {
         })
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
 
-    let mut cmd = CommandBuilder::new(game.cmd);
+    let mut cmd = CommandBuilder::new(&game_cmd);
     cmd.env("TERM", "xterm-256color");
 
     let _child = pair
