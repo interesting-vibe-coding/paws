@@ -44,7 +44,7 @@ The HUD shows session state (running / done) and flashes on completion. No auto-
 
 ## Games
 
-Tetris · [Dog Jump](https://github.com/MisterBrookT/paws-games) · Pinball · Earth Online (real-life side quests) · Knowledge · 🎲 Random rotation
+Tetris · [Dog Jump](https://github.com/MisterBrookT/paws-games) · Pinball · Earth Online (real-life side quests) · Poetry · 🎲 Random rotation
 
 ## How it works
 

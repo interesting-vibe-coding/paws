@@ -37,15 +37,16 @@ const DEFAULT_ROTATE_HOURS: u64 = 5;
 struct Game {
     name: &'static str,
     cmd: &'static str,
+    icon: &'static str,
     brew_hint: &'static str,
 }
 
 const GAMES: &[Game] = &[
-    Game { name: "Tetris", cmd: "tetris", brew_hint: "brew install vitetris" },
-    Game { name: "Dog Jump", cmd: "jump-high", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
-    Game { name: "Pinball", cmd: "pinball", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
-    Game { name: "Earth Online", cmd: "earth-online", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
-    Game { name: "Knowledge", cmd: "learn", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
+    Game { name: "Tetris", cmd: "tetris", icon: "🎮", brew_hint: "brew install vitetris" },
+    Game { name: "Dog Jump", cmd: "jump-high", icon: "🐕", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
+    Game { name: "Pinball", cmd: "pinball", icon: "🕹️", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
+    Game { name: "Earth Online", cmd: "earth-online", icon: "🌍", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
+    Game { name: "Poetry", cmd: "poetry", icon: "🪶", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
 ];
 
 fn is_installed(cmd: &str) -> bool {
@@ -138,13 +139,13 @@ fn main() -> io::Result<()> {
 /// game command, or None if the user backed out.
 fn pick_game_menu(installed: &[&Game]) -> io::Result<Option<String>> {
     enum Item {
-        Game(String, String),
+        Game(&'static str, String, String),
         Random,
         Settings,
     }
     let mut items: Vec<Item> = installed
         .iter()
-        .map(|g| Item::Game(g.name.to_string(), g.cmd.to_string()))
+        .map(|g| Item::Game(g.icon, g.name.to_string(), g.cmd.to_string()))
         .collect();
     items.push(Item::Random);
     items.push(Item::Settings);
@@ -152,7 +153,7 @@ fn pick_game_menu(installed: &[&Game]) -> io::Result<Option<String>> {
     let labels: Vec<String> = items
         .iter()
         .map(|it| match it {
-            Item::Game(name, _) => format!("🎮  {name}"),
+            Item::Game(icon, name, _) => format!("{icon}  {name}"),
             Item::Random => "🎲  Random".to_string(),
             Item::Settings => "⚙   Settings".to_string(),
         })
@@ -207,7 +208,7 @@ fn pick_game_menu(installed: &[&Game]) -> io::Result<Option<String>> {
                 selected = (selected + 1) % labels.len();
             }
             KeyCode::Enter => match &items[selected] {
-                Item::Game(_, cmd) => break Some(cmd.clone()),
+                Item::Game(_, _, cmd) => break Some(cmd.clone()),
                 Item::Random => break Some(resolve_random(installed)),
                 Item::Settings => in_settings = true,
             },
