@@ -263,6 +263,7 @@ fn pick_game_menu(installed: &[&Game]) -> io::Result<Option<String>> {
             } else {
                 draw_menu(f, &labels, selected);
             }
+            draw_hud(f);
         })?;
 
         if !event::poll(Duration::from_millis(120))? {
@@ -313,7 +314,7 @@ fn pick_game_menu(installed: &[&Game]) -> io::Result<Option<String>> {
 
 fn draw_menu(f: &mut Frame, labels: &[String], selected: usize) {
     let area = f.area();
-    f.render_widget(Block::default().style(Style::default().bg(Color::Rgb(30, 23, 18))), area);
+    f.render_widget(Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))), area);
 
     let box_w = 44u16.min(area.width.saturating_sub(2));
     let box_h = (labels.len() as u16 + 9).min(area.height.saturating_sub(2));
@@ -361,7 +362,7 @@ fn draw_menu(f: &mut Frame, labels: &[String], selected: usize) {
 
 fn draw_settings(f: &mut Frame, hours: u64) {
     let area = f.area();
-    f.render_widget(Block::default().style(Style::default().bg(Color::Rgb(30, 23, 18))), area);
+    f.render_widget(Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))), area);
 
     let content = centered_rect(44u16.min(area.width.saturating_sub(2)), 11, area);
     let plural = if hours == 1 { "hour" } else { "hours" };
