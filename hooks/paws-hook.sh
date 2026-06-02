@@ -18,6 +18,15 @@ EVENT=$(echo "$INPUT" | grep -o '"hook_event_name" *: *"[^"]*"' | head -1 | sed 
 [ -z "$SESSION_ID" ] && exit 0
 
 PID=$$
+# Walk up the process tree to find a stable ancestor — skip ephemeral shells
+# that agents (Claude Code, Codex) spawn for each hook invocation.
+stable_pid=$PPID
+for _ in 1 2; do
+  parent=$(ps -o ppid= -p "$stable_pid" 2>/dev/null | tr -d ' ')
+  [ -z "$parent" ] || [ "$parent" -le 1 ] && break
+  stable_pid=$parent
+done
+
 case "$EVENT" in
   PreToolUse|SessionStart|UserPromptSubmit)
     STATE="busy"
@@ -32,7 +41,7 @@ esac
 
 # Atomic write (temp + rename) to prevent HUD flicker
 TMP="$DIR/.tmp.$$"
-echo "$STATE $PPID" > "$TMP"
+echo "$STATE $stable_pid" > "$TMP"
 mv "$TMP" "$DIR/$SESSION_ID"
 
 exit 0

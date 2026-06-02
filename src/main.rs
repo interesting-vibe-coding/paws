@@ -96,7 +96,96 @@ fn resolve_random(installed: &[&Game]) -> String {
     installed[pick_index(bucket, installed.len().max(1))].cmd.to_string()
 }
 
+fn find_stable_ancestor() -> i32 {
+    let mut pid = unsafe { libc::getppid() } as i32;
+    for _ in 0..2 {
+        let Ok(out) = std::process::Command::new("ps")
+            .args(["-o", "ppid=", "-p", &pid.to_string()])
+            .output() else { break };
+        let ppid: i32 = String::from_utf8_lossy(&out.stdout)
+            .trim()
+            .parse()
+            .unwrap_or(0);
+        if ppid <= 1 { break; }
+        pid = ppid;
+    }
+    pid
+}
+
+fn scan_pgrep(pattern: &str) -> Vec<i32> {
+    std::process::Command::new("pgrep").args(["-x", pattern]).output().ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).lines()
+            .filter_map(|l| l.trim().parse::<i32>().ok()).collect())
+        .unwrap_or_default()
+}
+
+fn get_ppid_of(pid: i32) -> i32 {
+    std::process::Command::new("ps").args(["-o", "ppid=", "-p", &pid.to_string()])
+        .output().ok()
+        .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse().ok())
+        .unwrap_or(0)
+}
+
+fn handle_scan() -> io::Result<()> {
+    let dir = PathBuf::from(SESSIONS_DIR);
+    fs::create_dir_all(&dir)?;
+    let my_pid = std::process::id() as i32;
+    let mut seen = std::collections::HashSet::new();
+    let mut count = 0u32;
+
+    let write = |dir: &PathBuf, pid: i32, tmp_id: i32| -> io::Result<()> {
+        let tmp = dir.join(format!(".tmp.{}", tmp_id));
+        let target = dir.join(format!("scan-{}", pid));
+        fs::write(&tmp, format!("busy {pid}"))?;
+        fs::rename(&tmp, &target)?;
+        Ok(())
+    };
+
+    for pattern in &["cfuse", "kiro-cli"] {
+        for pid in scan_pgrep(pattern) {
+            if pid == my_pid || !pid_alive(pid) { continue; }
+            seen.insert(pid);
+            write(&dir, pid, my_pid)?;
+            count += 1;
+        }
+    }
+
+    for pid in scan_pgrep("claude") {
+        if pid == my_pid || !pid_alive(pid) { continue; }
+        let ppid = get_ppid_of(pid);
+        if seen.contains(&ppid) || ppid <= 1 { continue; }
+        write(&dir, pid, my_pid)?;
+        count += 1;
+    }
+
+    println!("🐾 Found {count} agent session(s)");
+    Ok(())
+}
+
+fn handle_signal() -> io::Result<()> {
+    let state = env::args().nth(2).unwrap_or_else(|| "busy".to_string());
+    if state != "busy" && state != "done" {
+        eprintln!("Usage: paws signal busy|done");
+        std::process::exit(1);
+    }
+    let dir = PathBuf::from(SESSIONS_DIR);
+    fs::create_dir_all(&dir)?;
+    let pid = find_stable_ancestor();
+    let sid = format!("signal-{}", pid);
+    let tmp = dir.join(format!(".tmp.{}", std::process::id()));
+    let target = dir.join(&sid);
+    fs::write(&tmp, format!("{state} {pid}"))?;
+    fs::rename(&tmp, &target)?;
+    Ok(())
+}
+
 fn main() -> io::Result<()> {
+    match env::args().nth(1).as_deref() {
+        Some("signal") => return handle_signal(),
+        Some("scan") => return handle_scan(),
+        _ => {}
+    }
+
     let list_mode = env::args().any(|a| a == "--list");
 
     if !list_mode && !lang::is_set() {

@@ -1,6 +1,6 @@
 ---
 name: paws-install
-description: Install Paws 🐾 (terminal companion for AI coding agents) into the user's Kaku terminal and their agent (Kiro CLI or Claude Code). Use this when the user asks to install, set up, or wire up Paws. Performs the Kaku Lua merge, game install, and agent stop-hook wiring — all idempotently.
+description: Install Paws 🐾 (terminal companion for AI coding agents) into the user's Kaku terminal and their agent (Kiro CLI, Claude Code, or Codex CLI). Use this when the user asks to install, set up, or wire up Paws. Performs the Kaku Lua merge, game install, and agent hook wiring — all idempotently.
 ---
 
 # Installing Paws 🐾
@@ -13,9 +13,11 @@ You are installing Paws for the user. Work from a local clone of this repo
 
 - Confirm the terminal is **Kaku** (`which kaku`). If not, tell the user Paws
   currently requires Kaku and stop.
-- Note the repo root (absolute path) — you'll need absolute paths later.
+- Note the repo root (absolute path) — you'll need it for hook paths.
+  **All hook paths in config files must be absolute** — `~` is not expanded
+  by any of the three agents.
 
-## 1. Install a game
+## 1. Build paws and install games
 
 The game tab runs `paws`, a tiny Rust launcher that shows a centered menu of
 installed games (plus 🎲 Random rotation and a ⚙ Settings screen). Build it and
@@ -23,12 +25,13 @@ install some games:
 
 ```bash
 cargo install --path .                                          # builds `paws` onto PATH
-cargo install --git https://github.com/MisterBrookT/paws-games  # Jump High, Pinball, Earth Online, Knowledge
+cargo install --git https://github.com/MisterBrookT/paws-games  # Dog Jump, Pinball, Earth Online, Poetry
 brew install vitetris                                           # optional: Tetris
 paws --list                                                     # confirm which games are detected
 ```
 
 If `cargo` is missing, point the user to https://rustup.rs first.
+The two `cargo install` commands are independent — run them in parallel to save time.
 
 ## 2. Merge the Lua into the Kaku config
 
@@ -45,13 +48,20 @@ end). The snippet to insert is `lua/paws.lua` from this repo.
 
 ## 3. Wire the agent's state signals (for the status HUD)
 
-`hooks/kiro/paws-signal.sh busy|done` records this session's state to
-`/tmp/paws-sessions/<id>` so the game's HUD can show which agents are running vs
-done. Wire two hooks: `userPromptSubmit` → `busy` (started) and `stop` → `done`
-(finished). It does NOT move you around — switching is always manual (CMD+G).
-**Use absolute paths** — `~` is not expanded in hook commands.
+Paws ships two hook scripts that write session state to `/tmp/paws-sessions/<id>`
+so the game's HUD can show which agents are running vs done:
 
-### Kiro CLI
+| Script | Used by | Input |
+|---|---|---|
+| `hooks/kiro/paws-signal.sh` | Kiro CLI | CLI args: `busy` or `done`; env `KIRO_SESSION_ID` |
+| `hooks/paws-hook.sh` | Claude Code, Codex CLI | JSON on stdin with `session_id` and `hook_event_name` |
+
+Wire **one** of the three subsections below, matching the user's agent. If the
+user uses multiple agents, wire all that apply — they share the same
+`/tmp/paws-sessions/` directory and the HUD aggregates them.
+
+### 3a. Kiro CLI
+
 `kiro_default` is built-in and cannot be edited, so use a custom agent identical
 to default except for the hooks:
 
@@ -71,19 +81,102 @@ to default except for the hooks:
      }
    }
    ```
-   The second `stop` hook is an optional completion chime (macOS). If the file
-   exists, just add the hook entries (don't clobber other keys or existing hooks).
-2. Tell the user to launch with `kiro-cli chat --agent default` (or update their
-   shell alias) so the hooks are active.
+   Replace `<REPO>` with the **absolute path** to this repo (e.g.
+   `/Users/me/paws`). The second `stop` hook is an optional completion chime
+   (macOS). If the file exists, merge the hook entries without clobbering
+   other keys or existing hooks.
+2. Tell the user to launch with `kiro-cli chat --agent default` (or update
+   their shell alias) so the hooks are active.
 
-### Claude Code (secondary / optional)
-Add `Stop` / `UserPromptSubmit` hooks in the user's Claude settings that run the
-same `paws-signal.sh done|busy`. (Claude support is still being validated.)
+### 3b. Claude Code
 
-## 4. Make the signal script executable
+Claude Code reads hooks from `~/.claude/settings.json` (user-level) or
+`.claude/settings.json` (project-level). Add two hook events: `UserPromptSubmit`
+(fires once per turn when the user sends a prompt → marks session as "busy") and
+`Stop` (fires when the agent finishes → marks session as "done").
+
+1. Open `~/.claude/settings.json`. If it already has a `"hooks"` key, **merge**
+   the two new events into it — do not overwrite existing hooks (e.g.
+   `Notification`). If there is no `"hooks"` key, create it.
+2. Add (or merge) these entries inside `"hooks"`:
+   ```json
+   "UserPromptSubmit": [
+     {
+       "hooks": [
+         {
+           "type": "command",
+           "command": "<REPO>/hooks/paws-hook.sh",
+           "timeout": 5
+         }
+       ]
+     }
+   ],
+   "Stop": [
+     {
+       "hooks": [
+         {
+           "type": "command",
+           "command": "<REPO>/hooks/paws-hook.sh",
+           "timeout": 5
+         }
+       ]
+     }
+   ]
+   ```
+   Replace `<REPO>` with the **absolute path** to this repo.
+3. **Hooks load at session start, not mid-session.** Since you (the installing
+   agent) are modifying settings.json during the current session, the hooks
+   won't fire until the user's **next** Claude Code session. To give the HUD
+   something to show right now, bootstrap the current session:
+   ```bash
+   paws signal busy
+   ```
+
+**Why `UserPromptSubmit` instead of `PreToolUse`?** `PreToolUse` fires on every
+tool call (dozens per turn), creating redundant writes. `UserPromptSubmit` fires
+once per turn — cleaner and sufficient for the HUD's "busy" signal.
+
+### 3c. Codex CLI
+
+> **Status: experimental.** Codex CLI's hook system is still evolving. The
+> wiring below works with codex-cli >= 0.130. If it doesn't work, the rest of
+> Paws still functions — you just won't see Codex sessions in the HUD.
+
+Codex CLI reads hooks from `~/.codex/config.toml` (TOML array-of-tables format).
+The hook receives JSON on stdin with `session_id` and `hook_event_name`, same
+as Claude Code.
+
+1. Open `~/.codex/config.toml` and **append** the following (don't overwrite
+   existing project trust settings etc.):
+   ```toml
+   [[hooks.UserPromptSubmit]]
+
+   [[hooks.UserPromptSubmit.hooks]]
+   type = "command"
+   command = "<REPO>/hooks/paws-hook.sh"
+   timeout = 5
+
+   [[hooks.Stop]]
+
+   [[hooks.Stop.hooks]]
+   type = "command"
+   command = "<REPO>/hooks/paws-hook.sh"
+   timeout = 5
+   ```
+   Replace `<REPO>` with the **absolute path** to this repo.
+2. Restart the Codex session for hooks to take effect.
+3. On first run, Codex will prompt to trust the hook script — accept it.
+4. To bootstrap the current session before hooks are active:
+   ```bash
+   paws signal busy
+   ```
+
+## 4. Make the hook scripts executable
 
 ```bash
+chmod +x <REPO>/hooks/paws-hook.sh
 chmod +x <REPO>/hooks/kiro/paws-signal.sh
+chmod +x <REPO>/hooks/kiro/paws-pause.sh
 ```
 
 ## 5. Finish
@@ -97,8 +190,14 @@ Tell the user to **reload Kaku (CMD+Shift+R)** — Kaku does NOT auto-reload —
 
 ## Verify
 
-- `luac -p ~/.config/kaku/kaku.lua` passes.
+- `luac -p ~/.config/kaku/kaku.lua` passes (if luac is available).
 - `paws --list` shows at least one installed game.
-- The hook paths in the agent config are absolute and the script is executable.
+- The hook paths in the agent config are absolute and the scripts are executable.
+- Quick smoke test (Claude Code / Codex): pipe mock JSON to the hook and check
+  the state file:
+  ```bash
+  echo '{"session_id":"test","hook_event_name":"UserPromptSubmit"}' | <REPO>/hooks/paws-hook.sh
+  cat /tmp/paws-sessions/test   # should show: busy <pid>
+  ```
 
 Report exactly which files you created or modified.

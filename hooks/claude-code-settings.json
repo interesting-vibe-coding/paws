@@ -1,12 +1,11 @@
 {
   "hooks": {
-    "PreToolUse": [
+    "UserPromptSubmit": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "~/.paws/hooks/paws-hook.sh",
+            "command": "<REPO>/hooks/paws-hook.sh",
             "timeout": 5
           }
         ]
@@ -17,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.paws/hooks/paws-hook.sh",
+            "command": "<REPO>/hooks/paws-hook.sh",
             "timeout": 5
           }
         ]

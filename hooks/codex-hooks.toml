@@ -1,0 +1,16 @@
+# Paws hooks for Codex CLI — merge into ~/.codex/config.toml
+# Replace <REPO> with the absolute path to the paws repo.
+
+[[hooks.UserPromptSubmit]]
+
+[[hooks.UserPromptSubmit.hooks]]
+type = "command"
+command = "<REPO>/hooks/paws-hook.sh"
+timeout = 5
+
+[[hooks.Stop]]
+
+[[hooks.Stop.hooks]]
+type = "command"
+command = "<REPO>/hooks/paws-hook.sh"
+timeout = 5

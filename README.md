@@ -29,18 +29,20 @@ The HUD shows session state (running / done) and flashes on completion. No auto-
 
 > "Install Paws using the skill in `paws/skills/paws-install/SKILL.md`."
 
+Supports **Kiro CLI**, **Claude Code**, and **Codex CLI** — see the [install skill](skills/paws-install/SKILL.md) for per-agent setup.
+
 **Manual fallback:**
 
 1. `cargo install --path .`
-2. Add [`lua/paws.lua`](lua/paws.lua) to your `~/.config/kaku/kaku.lua` (before `return config`).
-3. Wire [`hooks/kiro/paws-signal.sh`](hooks/kiro/paws-signal.sh) as `stop` and `userPromptSubmit` hooks:
-   ```json
-   "hooks": {
-     "stop":             [{ "command": "/absolute/path/to/paws-signal.sh done" }],
-     "userPromptSubmit": [{ "command": "/absolute/path/to/paws-signal.sh busy" }]
-   }
-   ```
-4. Install a game (`brew install vitetris` or `cargo install --git https://github.com/MisterBrookT/paws-games`), reload Kaku (CMD+Shift+R), press CMD+G.
+2. `cargo install --git https://github.com/MisterBrookT/paws-games` + optionally `brew install vitetris`
+3. Add [`lua/paws.lua`](lua/paws.lua) to your `~/.config/kaku/kaku.lua` (before `return config`).
+4. Wire hooks for your agent (see [`hooks/`](hooks/) for reference configs):
+   - **Kiro**: `hooks/kiro/paws-signal.sh busy|done` as `userPromptSubmit`/`stop` hooks
+   - **Claude Code**: `hooks/paws-hook.sh` as `UserPromptSubmit`/`Stop` hooks in `~/.claude/settings.json`
+   - **Codex CLI**: `hooks/paws-hook.sh` as `PreToolUse`/`Stop` hooks in `~/.codex/config.toml`
+5. Reload Kaku (CMD+Shift+R), press CMD+G.
+
+You can also signal manually: `paws signal busy` / `paws signal done` — useful for bootstrapping or agents without hook support.
 
 ## Games
 
