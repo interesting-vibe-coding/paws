@@ -45,7 +45,6 @@ struct Game {
     icon: String,
     cmd: String,
     install: String,
-    #[allow(dead_code)]
     description: String,
 }
 
@@ -241,35 +240,39 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
     io::stdout().execute(EnterAlternateScreen)?;
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
 
-    let mut selected = 0usize;
-    let mut in_settings = false;
+    enum Screen {
+        Menu,
+        Settings,
+        Install,
+    }
+    let mut screen = Screen::Menu;
     let mut hours = rotate_hours();
+    let mut selected = 0usize; // main-menu cursor
+    let mut install_sel = 0usize; // install-catalog cursor
 
-    // Build labels and installed status
-    let mut installed_flags: Vec<bool> = games.iter().map(|g| is_installed(&g.cmd)).collect();
-
-    let build_labels = |games: &[Game], flags: &[bool]| -> Vec<String> {
-        let mut labels: Vec<String> = games.iter().zip(flags.iter()).map(|(g, &inst)| {
-            if inst {
-                format!("{}  {}", g.icon, g.name)
-            } else {
-                format!("{}  {} ⤓ install", g.icon, g.name)
-            }
-        }).collect();
-        labels.push("🎲  Random".to_string());
-        labels.push("⚙   Settings".to_string());
-        labels
-    };
-
-    let mut labels = build_labels(games, &installed_flags);
-    let game_count = games.len();
+    let mut installed: Vec<bool> = games.iter().map(|g| is_installed(&g.cmd)).collect();
 
     let result = loop {
+        // Main menu = installed games (playable) + Random + Settings + Install.
+        let playable: Vec<usize> = (0..games.len()).filter(|&i| installed[i]).collect();
+        let mut menu_labels: Vec<String> = playable
+            .iter()
+            .map(|&i| format!("{}  {}", games[i].icon, games[i].name))
+            .collect();
+        let n_play = playable.len();
+        menu_labels.push("🎲  Random".to_string());
+        menu_labels.push("⚙   Settings".to_string());
+        menu_labels.push("⤓  Install games".to_string());
+        let menu_len = menu_labels.len();
+        if selected >= menu_len {
+            selected = menu_len - 1;
+        }
+
         terminal.draw(|f| {
-            if in_settings {
-                draw_settings(f, hours);
-            } else {
-                draw_menu(f, &labels, &installed_flags, selected);
+            match screen {
+                Screen::Settings => draw_settings(f, hours),
+                Screen::Install => draw_install(f, games, &installed, install_sel),
+                Screen::Menu => draw_menu(f, &menu_labels, selected),
             }
             draw_hud(f);
         })?;
@@ -282,8 +285,8 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
             continue;
         }
 
-        if in_settings {
-            match key.code {
+        match screen {
+            Screen::Settings => match key.code {
                 KeyCode::Left | KeyCode::Char('-') | KeyCode::Char('h') => {
                     hours = (hours - 1).clamp(1, 24);
                     save_rotate_hours(hours);
@@ -292,26 +295,20 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
                     hours = (hours + 1).clamp(1, 24);
                     save_rotate_hours(hours);
                 }
-                KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => in_settings = false,
+                KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => screen = Screen::Menu,
                 _ => {}
-            }
-            continue;
-        }
-
-        match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                selected = if selected == 0 { labels.len() - 1 } else { selected - 1 };
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                selected = (selected + 1) % labels.len();
-            }
-            KeyCode::Enter | KeyCode::Char(' ') => {
-                if selected < game_count {
-                    if installed_flags[selected] {
-                        break Some(games[selected].cmd.clone());
-                    } else {
-                        // Install the game
-                        let game = &games[selected];
+            },
+            Screen::Install => match key.code {
+                KeyCode::Up | KeyCode::Char('k') => {
+                    install_sel = if install_sel == 0 { games.len() - 1 } else { install_sel - 1 };
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    install_sel = (install_sel + 1) % games.len();
+                }
+                KeyCode::Esc | KeyCode::Char('q') => screen = Screen::Menu,
+                KeyCode::Enter | KeyCode::Char(' ') => {
+                    if !installed[install_sel] {
+                        let game = &games[install_sel];
                         disable_raw_mode()?;
                         io::stdout().execute(LeaveAlternateScreen)?;
 
@@ -324,7 +321,7 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
                             .status();
 
                         match status {
-                            Ok(s) if s.success() => println!("\n  ✓ {} installed successfully!", game.name),
+                            Ok(s) if s.success() => println!("\n  ✓ {} installed!", game.name),
                             Ok(s) => println!("\n  ✗ Install failed (exit {})", s.code().unwrap_or(-1)),
                             Err(e) => println!("\n  ✗ Install error: {e}"),
                         }
@@ -332,29 +329,39 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
                         let _ = io::stdout().flush();
                         let _ = io::stdin().lock().read_line(&mut String::new());
 
-                        // Re-enter TUI
                         enable_raw_mode()?;
                         io::stdout().execute(EnterAlternateScreen)?;
                         terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
-
-                        // Re-scan PATH
-                        installed_flags = games.iter().map(|g| is_installed(&g.cmd)).collect();
-                        labels = build_labels(games, &installed_flags);
+                        installed = games.iter().map(|g| is_installed(&g.cmd)).collect();
                     }
-                } else if selected == game_count {
-                    // Random — among installed only
-                    let installed: Vec<&Game> = games.iter()
-                        .filter(|g| is_installed(&g.cmd))
-                        .collect();
-                    if !installed.is_empty() {
-                        break Some(resolve_random(&installed));
-                    }
-                } else {
-                    in_settings = true;
                 }
-            }
-            KeyCode::Esc | KeyCode::Char('q') => break None,
-            _ => {}
+                _ => {}
+            },
+            Screen::Menu => match key.code {
+                KeyCode::Up | KeyCode::Char('k') => {
+                    selected = if selected == 0 { menu_len - 1 } else { selected - 1 };
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    selected = (selected + 1) % menu_len;
+                }
+                KeyCode::Enter | KeyCode::Char(' ') => {
+                    if selected < n_play {
+                        break Some(games[playable[selected]].cmd.clone());
+                    } else if selected == n_play {
+                        let inst: Vec<&Game> = playable.iter().map(|&i| &games[i]).collect();
+                        if !inst.is_empty() {
+                            break Some(resolve_random(&inst));
+                        }
+                    } else if selected == n_play + 1 {
+                        screen = Screen::Settings;
+                    } else {
+                        screen = Screen::Install;
+                        install_sel = 0;
+                    }
+                }
+                KeyCode::Esc | KeyCode::Char('q') => break None,
+                _ => {}
+            },
         }
     };
 
@@ -363,7 +370,7 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
     Ok(result)
 }
 
-fn draw_menu(f: &mut Frame, labels: &[String], installed_flags: &[bool], selected: usize) {
+fn draw_menu(f: &mut Frame, labels: &[String], selected: usize) {
     let area = f.area();
     f.render_widget(Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))), area);
 
@@ -385,17 +392,8 @@ fn draw_menu(f: &mut Frame, labels: &[String], installed_flags: &[bool], selecte
     ];
 
     for (i, label) in labels.iter().enumerate() {
-        let is_game = i < installed_flags.len();
-        let dimmed = is_game && !installed_flags[i];
-
         let (style, prefix) = if i == selected {
-            if dimmed {
-                (Style::default().fg(Color::Rgb(180, 160, 120)).add_modifier(Modifier::BOLD), "▸  ")
-            } else {
-                (Style::default().fg(Color::Rgb(255, 215, 140)).add_modifier(Modifier::BOLD), "▸  ")
-            }
-        } else if dimmed {
-            (Style::default().fg(Color::Rgb(130, 115, 95)), "   ")
+            (Style::default().fg(Color::Rgb(255, 215, 140)).add_modifier(Modifier::BOLD), "▸  ")
         } else {
             (Style::default().fg(Color::Rgb(195, 175, 145)), "   ")
         };
@@ -410,6 +408,63 @@ fn draw_menu(f: &mut Frame, labels: &[String], installed_flags: &[bool], selecte
     lines.push(Line::from(Span::styled(
         "⌘G switch · ⌘⇧P re-pick · ⌘H help",
         Style::default().fg(Color::Rgb(155, 132, 105)),
+    )));
+
+    let para = Paragraph::new(lines).alignment(Alignment::Center).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Rgb(150, 120, 70))),
+    );
+    f.render_widget(para, content);
+}
+
+/// The "Install games" catalog: every game in the registry, with its install
+/// state. Installing happens here, inside Paws — the registry is the plugin index.
+fn draw_install(f: &mut Frame, games: &[Game], installed: &[bool], selected: usize) {
+    let area = f.area();
+    f.render_widget(Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))), area);
+
+    let box_w = 52u16.min(area.width.saturating_sub(2));
+    let box_h = (games.len() as u16 + 11).min(area.height.saturating_sub(2));
+    let content = centered_rect(box_w, box_h, area);
+
+    let mut lines = vec![
+        Line::raw(""),
+        Line::from(Span::styled(
+            "⤓  Install games",
+            Style::default().fg(Color::Rgb(255, 200, 120)).add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "from the paws-games library",
+            Style::default().fg(Color::Rgb(165, 140, 115)),
+        )),
+        Line::raw(""),
+    ];
+
+    for (i, g) in games.iter().enumerate() {
+        let marker = if installed[i] { "✓ installed" } else { "⤓ install" };
+        let label = format!("{}  {}   {}", g.icon, g.name, marker);
+        let (style, prefix) = if i == selected {
+            (Style::default().fg(Color::Rgb(255, 215, 140)).add_modifier(Modifier::BOLD), "▸  ")
+        } else if installed[i] {
+            (Style::default().fg(Color::Rgb(150, 170, 140)), "   ")
+        } else {
+            (Style::default().fg(Color::Rgb(195, 175, 145)), "   ")
+        };
+        lines.push(Line::from(Span::styled(format!("{prefix}{label}"), style)));
+    }
+
+    lines.push(Line::raw(""));
+    if let Some(g) = games.get(selected) {
+        lines.push(Line::from(Span::styled(
+            g.description.clone(),
+            Style::default().fg(Color::Rgb(150, 130, 105)),
+        )));
+    }
+    lines.push(Line::raw(""));
+    lines.push(Line::from(Span::styled(
+        "↑↓ move · Enter install · Esc back",
+        Style::default().fg(Color::Rgb(175, 150, 120)),
     )));
 
     let para = Paragraph::new(lines).alignment(Alignment::Center).block(

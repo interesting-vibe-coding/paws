@@ -60,7 +60,7 @@ Then add [`lua/paws.lua`](lua/paws.lua) to your `~/.config/kaku/kaku.lua` (befor
 | 🌍 Earth Online | `earth-online` | Real-life side quests to run while your agent works |
 | 🧱 Tetris | `tetris` | Classic block-stacking with levels and scoring |
 
-Don't see enough? Install more games right from the in-app picker — uninstalled games show a one-click install option. Browse the community game library at [paws-games](https://github.com/interesting-vibe-coding/paws-games).
+Don't see enough? Open **⤓ Install games** in the picker to browse the catalog and install more in place. The catalog is the [paws-games](https://github.com/interesting-vibe-coding/paws-games) plugin library — anyone can contribute a game.
 
 ## How it works
 

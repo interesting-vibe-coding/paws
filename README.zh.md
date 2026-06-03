@@ -60,7 +60,7 @@ cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin 
 | 🌍 Earth Online | `earth-online` | Agent 工作时的现实世界支线任务 |
 | 🧱 Tetris | `tetris` | 经典方块消除，带等级和计分 |
 
-不够玩？直接在游戏选择菜单里安装更多——未安装的游戏会显示一键安装选项。浏览社区游戏库：[paws-games](https://github.com/interesting-vibe-coding/paws-games)。
+不够玩？在选择菜单里进入 **⤓ Install games**,浏览目录并就地安装更多。这个目录就是 [paws-games](https://github.com/interesting-vibe-coding/paws-games) 插件库——欢迎贡献你自己的游戏。
 
 ## 工作原理
 

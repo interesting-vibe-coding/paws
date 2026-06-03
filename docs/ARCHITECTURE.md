@@ -42,18 +42,19 @@ A concise overview of how Paws works internally.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Registry & In-Menu Install
+## Registry & the Install catalog
 
 ```mermaid
 flowchart TD
     A[registry.toml] -->|bundled via include_str!| B[paws binary]
     A2[~/.config/paws/registry.toml] -->|override if exists| B
-    B --> C{Game picker menu}
-    C -->|game installed on PATH| D[Launch in PTY]
-    C -->|game NOT installed| E[Run install command]
+    B --> C{Main picker}
+    C -->|installed game| D[Launch in PTY]
+    C -->|⤓ Install games| H[Install catalog: all registry games]
+    H -->|select an uninstalled game| E[Run install command]
     E -->|cargo install --git ...| F[Binary lands on PATH]
     F --> G[Re-scan PATH]
-    G --> C
+    G --> H
 ```
 
 **Registry format** (`registry.toml`):
