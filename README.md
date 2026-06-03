@@ -69,6 +69,10 @@ Then wire the terminal integration and hooks for your agent (see [`hooks/`](hook
 | 🐕 Dog Jump | `jump-high` | Jump King-style platformer — charge, aim, and pray |
 | 🌍 Earth Online | `earth-online` | Real-life side quests to run while your agent works |
 | 🧱 Tetris | `tetris` | Classic block-stacking with levels and scoring |
+| 👾 Space Invaders | `space-invaders` | Classic arcade shooter — blast the alien fleet before they land |
+| 🏓 Breakout | `breakout` | Smash bricks with a bouncing ball — power-ups, hard bricks, 3 lives |
+| 🐍 Snake | `snake` | Eat, grow, don't bite yourself — speed scales with score |
+| 🎮 2048 | `2048` | Slide tiles, merge numbers, reach 2048 |
 
 Don't see enough? Open **⤓ Install games** in the picker to browse the catalog and install more in place. The catalog is the [paws-games](https://github.com/interesting-vibe-coding/paws-games) plugin library — anyone can contribute a game.
 

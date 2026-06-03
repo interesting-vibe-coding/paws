@@ -42,3 +42,19 @@ icon = "🎮"
 cmd = "2048"
 install = "cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin 2048"
 description = "Slide tiles, merge numbers, reach 2048."
+
+[[game]]
+id = "space-invaders"
+name = "Space Invaders"
+icon = "👾"
+cmd = "space-invaders"
+install = "cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin space-invaders"
+description = "Classic arcade shooter — blast the alien fleet before they land."
+
+[[game]]
+id = "breakout"
+name = "Breakout"
+icon = "🧱"
+cmd = "breakout"
+install = "cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin breakout"
+description = "Smash bricks with a bouncing ball — power-ups, hard bricks, 3 lives."

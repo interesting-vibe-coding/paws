@@ -69,6 +69,10 @@ cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin 
 | 🐕 Dog Jump | `jump-high` | Jump King 风格平台跳跃——蓄力、瞄准、听天由命 |
 | 🌍 Earth Online | `earth-online` | Agent 工作时的现实世界支线任务 |
 | 🧱 Tetris | `tetris` | 经典方块消除，带等级和计分 |
+| 👾 Space Invaders | `space-invaders` | 经典街机射击——在外星舰队降落前将其击毁 |
+| 🏓 Breakout | `breakout` | 弹球打砖块——道具加持、硬砖双击、三条命 |
+| 🐍 Snake | `snake` | 吃、长大、别咬自己——得分越高速度越快 |
+| 🎮 2048 | `2048` | 滑动合并数字，挑战 2048 |
 
 不够玩？在选择菜单里进入 **⤓ Install games**,浏览目录并就地安装更多。这个目录就是 [paws-games](https://github.com/interesting-vibe-coding/paws-games) 插件库——欢迎贡献你自己的游戏。
 
