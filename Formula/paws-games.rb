@@ -5,7 +5,7 @@ class PawsGames < Formula
 
   stable do
     url "https://github.com/interesting-vibe-coding/paws-games/archive/refs/tags/v0.3.0.tar.gz"
-    sha256 ""  # TODO: fill after tagging v0.3.0
+    sha256 "6e399fc9362bd83a4ebc5e0cf8cf0949f45a69f783027ff8557301ce524f7a6f"
     version "0.3.0"
   end
 
