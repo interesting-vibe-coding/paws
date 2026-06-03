@@ -272,11 +272,15 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
         Menu,
         Settings,
         Install,
+        Installing,
     }
     let mut screen = Screen::Menu;
     let mut hours = rotate_hours();
     let mut selected = 0usize; // main-menu cursor
     let mut install_sel = 0usize; // install-catalog cursor
+    let mut install_log: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
+    let mut install_result: Arc<Mutex<Option<bool>>> = Arc::new(Mutex::new(None));
+    let mut install_game_idx: usize = 0;
 
     let mut installed: Vec<bool> = games.iter().map(|g| is_installed(&g.cmd)).collect();
 
@@ -301,6 +305,9 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
                 Screen::Settings => draw_settings(f, hours),
                 Screen::Install => draw_install(f, games, &installed, install_sel),
                 Screen::Menu => draw_menu(f, &menu_labels, selected),
+                Screen::Installing => {
+                    draw_installing(f, games, install_game_idx, &install_log, &install_result)
+                }
             }
             draw_hud(f);
         })?;
@@ -341,37 +348,63 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
                 }
                 KeyCode::Esc | KeyCode::Char('q') => screen = Screen::Menu,
                 KeyCode::Enter | KeyCode::Char(' ') if !installed[install_sel] => {
-                    let game = &games[install_sel];
-                    disable_raw_mode()?;
-                    io::stdout().execute(LeaveAlternateScreen)?;
+                    let install_cmd = games[install_sel].install.clone();
+                    install_game_idx = install_sel;
+                    install_log = Arc::new(Mutex::new(Vec::new()));
+                    install_result = Arc::new(Mutex::new(None));
 
-                    println!("\n  Installing {}…", game.name);
-                    println!("  $ {}\n", game.install);
-
-                    let status = std::process::Command::new("sh")
-                        .arg("-c")
-                        .arg(&game.install)
-                        .status();
-
-                    match status {
-                        Ok(s) if s.success() => println!("\n  ✓ {} installed!", game.name),
-                        Ok(s) => {
-                            println!("\n  ✗ Install failed (exit {})", s.code().unwrap_or(-1))
+                    let log_t = Arc::clone(&install_log);
+                    let result_t = Arc::clone(&install_result);
+                    std::thread::spawn(move || {
+                        let child = std::process::Command::new("sh")
+                            .arg("-c")
+                            .arg(&install_cmd)
+                            .env("CARGO_TERM_COLOR", "never")
+                            .stdout(std::process::Stdio::piped())
+                            .stderr(std::process::Stdio::piped())
+                            .spawn();
+                        match child {
+                            Err(e) => {
+                                log_t.lock().unwrap().push(format!("error: {e}"));
+                                *result_t.lock().unwrap() = Some(false);
+                            }
+                            Ok(mut child) => {
+                                let stdout = child.stdout.take().unwrap();
+                                let stderr = child.stderr.take().unwrap();
+                                let log_out = Arc::clone(&log_t);
+                                let log_err = Arc::clone(&log_t);
+                                let t_out = std::thread::spawn(move || {
+                                    for l in
+                                        io::BufReader::new(stdout).lines().map_while(Result::ok)
+                                    {
+                                        log_out.lock().unwrap().push(l);
+                                    }
+                                });
+                                let t_err = std::thread::spawn(move || {
+                                    for l in
+                                        io::BufReader::new(stderr).lines().map_while(Result::ok)
+                                    {
+                                        log_err.lock().unwrap().push(l);
+                                    }
+                                });
+                                let ok = child.wait().map(|s| s.success()).unwrap_or(false);
+                                t_out.join().ok();
+                                t_err.join().ok();
+                                *result_t.lock().unwrap() = Some(ok);
+                            }
                         }
-                        Err(e) => println!("\n  ✗ Install error: {e}"),
-                    }
-                    print!("  Press Enter to continue…");
-                    let _ = io::stdout().flush();
-                    let _ = io::stdin().lock().read_line(&mut String::new());
-
-                    enable_raw_mode()?;
-                    io::stdout().execute(EnterAlternateScreen)?;
-                    terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
-                    installed = games.iter().map(|g| is_installed(&g.cmd)).collect();
+                    });
+                    screen = Screen::Installing;
                 }
                 KeyCode::Enter | KeyCode::Char(' ') => {}
                 _ => {}
             },
+            Screen::Installing => {
+                if install_result.lock().unwrap().is_some() {
+                    installed = games.iter().map(|g| is_installed(&g.cmd)).collect();
+                    screen = Screen::Install;
+                }
+            }
             Screen::Menu => match key.code {
                 KeyCode::Up | KeyCode::Char('k') => {
                     selected = if selected == 0 {
@@ -529,6 +562,95 @@ fn draw_install(f: &mut Frame, games: &[Game], installed: &[bool], selected: usi
         "↑↓ move · Enter install · Esc back",
         Style::default().fg(Color::Rgb(175, 150, 120)),
     )));
+
+    let para = Paragraph::new(lines).alignment(Alignment::Center).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Rgb(150, 120, 70))),
+    );
+    f.render_widget(para, content);
+}
+
+fn draw_installing(
+    f: &mut Frame,
+    games: &[Game],
+    game_idx: usize,
+    log: &Arc<Mutex<Vec<String>>>,
+    result: &Arc<Mutex<Option<bool>>>,
+) {
+    let area = f.area();
+    f.render_widget(
+        Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))),
+        area,
+    );
+
+    let log_lines = log.lock().unwrap().clone();
+    let result_val = *result.lock().unwrap();
+    let game = &games[game_idx];
+
+    const MAX_LOG: usize = 8;
+    let box_w = 56u16.min(area.width.saturating_sub(2));
+    let n_log = log_lines.len().min(MAX_LOG);
+    let box_h = (n_log as u16 + 7).min(area.height.saturating_sub(2));
+    let content = centered_rect(box_w, box_h, area);
+
+    let ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
+
+    let (title, title_style) = match result_val {
+        None => {
+            const SPIN: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+            let frame = SPIN[((ms / 80) % 10) as usize];
+            (
+                format!("{}  Installing {}…", frame, game.name),
+                Style::default()
+                    .fg(Color::Rgb(255, 200, 120))
+                    .add_modifier(Modifier::BOLD),
+            )
+        }
+        Some(true) => (
+            format!("✓  {} installed!", game.name),
+            Style::default()
+                .fg(Color::Rgb(120, 210, 120))
+                .add_modifier(Modifier::BOLD),
+        ),
+        Some(false) => (
+            "✗  Install failed".to_string(),
+            Style::default()
+                .fg(Color::Rgb(220, 100, 100))
+                .add_modifier(Modifier::BOLD),
+        ),
+    };
+
+    let mut lines = vec![
+        Line::raw(""),
+        Line::from(Span::styled(title, title_style)),
+        Line::raw(""),
+    ];
+
+    let skip = log_lines.len().saturating_sub(MAX_LOG);
+    let max_chars = box_w.saturating_sub(4) as usize;
+    for line in &log_lines[skip..] {
+        let display = if line.len() > max_chars {
+            &line[..max_chars]
+        } else {
+            line.as_str()
+        };
+        lines.push(Line::from(Span::styled(
+            display.to_string(),
+            Style::default().fg(Color::Rgb(155, 140, 115)),
+        )));
+    }
+
+    lines.push(Line::raw(""));
+    if result_val.is_some() {
+        lines.push(Line::from(Span::styled(
+            "Press any key to continue",
+            Style::default().fg(Color::Rgb(175, 150, 120)),
+        )));
+    }
 
     let para = Paragraph::new(lines).alignment(Alignment::Center).block(
         Block::default()
@@ -882,9 +1004,13 @@ mod tests {
     #[test]
     fn load_registry_parses_bundled() {
         let games = load_registry();
-        assert_eq!(games.len(), 3);
+        assert_eq!(games.len(), 7);
         assert_eq!(games[0].cmd, "jump-high");
         assert_eq!(games[1].cmd, "earth-online");
         assert_eq!(games[2].cmd, "tetris");
+        assert_eq!(games[3].cmd, "snake");
+        assert_eq!(games[4].cmd, "2048");
+        assert_eq!(games[5].cmd, "space-invaders");
+        assert_eq!(games[6].cmd, "breakout");
     }
 }
