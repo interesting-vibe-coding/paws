@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 # 🐾 Paws
 
-[![CI](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml/badge.svg)](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Works with Kaku, WezTerm & iTerm2](https://img.shields.io/badge/Works_with-Kaku_%7C_WezTerm_%7C_iTerm2-blue)](https://github.com/interesting-vibe-coding/paws/blob/main/docs/iterm2-setup.md) [![Made with Lua & Rust](https://img.shields.io/badge/Made_with-Lua_&_Rust-orange)]() [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/interesting-vibe-coding/paws/pulls) [![GitHub Stars](https://img.shields.io/github/stars/interesting-vibe-coding/paws?style=flat&color=yellow)](https://github.com/interesting-vibe-coding/paws/stargazers)
+[![CI](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml/badge.svg)](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Works with Kaku, WezTerm, iTerm2 & tmux](https://img.shields.io/badge/Works_with-Kaku_%7C_WezTerm_%7C_iTerm2_%7C_tmux-blue)](https://github.com/interesting-vibe-coding/paws#install) [![Made with Lua & Rust](https://img.shields.io/badge/Made_with-Lua_&_Rust-orange)]() [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/interesting-vibe-coding/paws/pulls) [![GitHub Stars](https://img.shields.io/github/stars/interesting-vibe-coding/paws?style=flat&color=yellow)](https://github.com/interesting-vibe-coding/paws/stargazers)
 
 Play games while your AI agent works. A status HUD tells you when to come back.
 
@@ -53,7 +53,8 @@ cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin 
 Then wire the terminal integration and hooks for your agent (see [`hooks/`](hooks/) for reference configs).
 - **Kaku:** add [`lua/paws.lua`](lua/paws.lua) to `~/.config/kaku/kaku.lua` before `return config` — reload with CMD+Shift+R
 - **WezTerm:** add [`lua/paws.lua`](lua/paws.lua) to `~/.config/wezterm/wezterm.lua` — auto-reloads on save
-- **iTerm2:** copy [`iterm2/paws.py`](iterm2/paws.py) to `~/.config/iterm2/scripts/AutoLaunch/` and bind 3 keys — see [docs/iterm2-setup.md](docs/iterm2-setup.md)
+- **iTerm2:** copy [`iterm2/paws.py`](iterm2/paws.py) to `~/.config/iterm2/scripts/AutoLaunch/` and bind 3 keys — see [setup guide](docs/iterm2-setup.md)
+- **tmux:** copy [`tmux/`](tmux/) scripts to `~/.config/paws/` and add 2 lines to `~/.tmux.conf` — see [setup guide](docs/tmux-setup.md)
 
 ## Games
 
@@ -65,9 +66,18 @@ Then wire the terminal integration and hooks for your agent (see [`hooks/`](hook
 
 Don't see enough? Open **⤓ Install games** in the picker to browse the catalog and install more in place. The catalog is the [paws-games](https://github.com/interesting-vibe-coding/paws-games) plugin library — anyone can contribute a game.
 
+## Terminals
+
+| Terminal | Integration | Keys |
+|----------|-------------|------|
+| [Kaku](https://github.com/tw93/kaku) | `lua/paws.lua` → Lua config | CMD+G / CMD+SHIFT+P |
+| [WezTerm](https://wezfurlong.org/wezterm/) | `lua/paws.lua` → Lua config | CMD+G / CMD+SHIFT+P |
+| [iTerm2](https://iterm2.com) | `iterm2/paws.py` → AutoLaunch script | CMD+G / CMD+SHIFT+P — [setup](docs/iterm2-setup.md) |
+| tmux | `tmux/*.sh` → shell scripts | Prefix+g / Prefix+G — [setup](docs/tmux-setup.md) |
+
 ## How it works
 
-Agent hooks write session state to `/tmp/paws-sessions/` → Kaku Lua handles CMD+G (spawns/toggles a tab) → the `paws` host runs the chosen game in a PTY and renders the HUD on the top row. Games are standalone binaries discovered via a [registry](registry.toml).
+Agent hooks write session state to `/tmp/paws-sessions/` → the terminal integration handles the key binding (spawns/toggles a window) → the `paws` host runs the chosen game in a PTY and renders the HUD on the top row. Games are standalone binaries discovered via a [registry](registry.toml).
 
 For architecture details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

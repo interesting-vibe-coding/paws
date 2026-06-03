@@ -12,12 +12,13 @@ You are installing Paws for the user. Work from a local clone of this repo
 ## 0. Preconditions
 
 - Confirm the terminal is **Kaku** (`which kaku`), **WezTerm** (`which wezterm`),
-  or **iTerm2** (`ls /Applications/iTerm.app`). All three are supported.
-  If none is installed, ask the user to install one first and stop.
+  **iTerm2** (`ls /Applications/iTerm.app`), or **tmux** (`which tmux`). All four
+  are supported. If none is installed, ask the user to install one first and stop.
 - Determine the terminal type — it affects Step 2:
   - Kaku: `~/.config/kaku/kaku.lua` (Lua config)
   - WezTerm: `~/.config/wezterm/wezterm.lua` (Lua config)
-  - iTerm2: Python script + manual key bindings (see Step 2b)
+  - iTerm2: Python AutoLaunch script + manual key bindings (see Step 2b)
+  - tmux: two shell scripts + two lines in `~/.tmux.conf` (see Step 2c)
 - Note the repo root (absolute path) — you'll need it for hook paths.
   **All hook paths in config files must be absolute** — `~` is not expanded
   by any of the three agents.
@@ -83,6 +84,28 @@ Then tell the user to:
    - `Cmd+H` → Invoke Script Function → `paws_help()`
 
 Full details: [docs/iterm2-setup.md](../../docs/iterm2-setup.md)
+
+## 2c. Install the tmux scripts (tmux only)
+
+Skip this step if the user is on Kaku, WezTerm, or iTerm2.
+
+```bash
+mkdir -p ~/.config/paws
+cp <REPO>/tmux/paws-toggle.sh ~/.config/paws/tmux-toggle.sh
+cp <REPO>/tmux/paws-picker.sh ~/.config/paws/tmux-picker.sh
+cp <REPO>/tmux/paws.conf      ~/.config/paws/paws.conf
+chmod +x ~/.config/paws/tmux-toggle.sh ~/.config/paws/tmux-picker.sh
+```
+
+Add to `~/.tmux.conf`:
+```
+source-file ~/.config/paws/paws.conf
+```
+
+Then reload: `tmux source-file ~/.tmux.conf`
+
+Keybindings: **Prefix+g** (toggle), **Prefix+G** (reopen picker).
+Full details: [docs/tmux-setup.md](../../docs/tmux-setup.md)
 
 ## 3. Wire the agent's state signals (for the status HUD)
 
