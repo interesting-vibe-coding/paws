@@ -4,9 +4,9 @@ class Paws < Formula
   license "MIT"
 
   stable do
-    url "https://github.com/interesting-vibe-coding/paws/archive/refs/tags/v0.3.0.tar.gz"
-    sha256 "3f37c0276d062cd8799b1d71892ca1d6448d60be939c28885637859c0c3e181e"
-    version "0.3.0"
+    url "https://github.com/interesting-vibe-coding/paws/archive/refs/tags/v0.3.1.tar.gz"
+    sha256 "238b6b02734aea3d1b3aa316db23b52f14437e3cd92302e8a9b0f2bef8910f58"
+    version "0.3.1"
   end
 
   head "https://github.com/interesting-vibe-coding/paws.git", branch: "main"
