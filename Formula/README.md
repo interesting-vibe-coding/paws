@@ -29,12 +29,14 @@ inside `Formula/` in that tap repo.
 
 1. **Create the tap repo** — `interesting-vibe-coding/homebrew-paws` on GitHub.
    Copy `paws.rb` and `paws-games.rb` into its `Formula/` directory.
-2. **Tag releases** — create a `v0.3.0` tag in both repos:
-   - `interesting-vibe-coding/paws`
-   - `interesting-vibe-coding/paws-games`
-3. **Fill in sha256** — download each tarball and run `shasum -a 256 <file>`,
-   then paste the hash into the corresponding formula's `sha256` field.
-4. **Push the tap repo** — once formulae have valid sha256 values, the stable
-   `brew install paws` path is live.
+2. **Tags** — `v0.3.1` has been created in `interesting-vibe-coding/paws`.
+   The release workflow (`.github/workflows/release.yml`) triggers on `v*` tag
+   pushes and will produce pre-built binaries attached to the GitHub Release.
+   `paws-games` still needs its own tag once that repo is ready.
+3. **sha256** — both formulae already have sha256 values filled in.
+   If the release workflow rebuilds and re-uploads tarballs the hashes may need
+   to be re-verified with `shasum -a 256 <downloaded-tarball>`.
+4. **Push the tap repo** — once the tap repo exists and formulae are copied in,
+   the stable `brew install paws` path is live.
 
 Until steps 1–4 are done, only `--HEAD` installs work.
