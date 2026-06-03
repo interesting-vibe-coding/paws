@@ -37,7 +37,7 @@ Supports **Kiro CLI**, **Claude Code**, and **Codex CLI** — see the [install s
 ```bash
 brew tap interesting-vibe-coding/paws
 brew install paws        # the paws binary
-brew install paws-games  # all games
+brew install paws-games  # all 7 games
 ```
 
 Or install the latest development build:
@@ -50,10 +50,16 @@ brew install --HEAD interesting-vibe-coding/paws/paws-games
 ### 3. Manual
 
 ```bash
-cargo install --path .                                       # build paws
+cargo install --path .   # build paws
+
+# Install games individually:
 cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin jump-high
 cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin earth-online
 cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin tetris
+cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin snake
+cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin 2048
+cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin breakout
+cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin space-invaders
 ```
 
 Then wire the terminal integration and hooks for your agent (see [`hooks/`](hooks/) for reference configs).

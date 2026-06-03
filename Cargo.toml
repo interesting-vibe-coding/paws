@@ -2,6 +2,12 @@
 name = "paws"
 version = "0.4.0"
 edition = "2021"
+description = "Play games in your terminal while your AI coding agent works — a live status HUD tells you when to come back"
+license = "MIT"
+homepage = "https://github.com/interesting-vibe-coding/paws"
+repository = "https://github.com/interesting-vibe-coding/paws"
+keywords = ["terminal", "games", "tui", "ai-agent", "productivity"]
+categories = ["command-line-utilities", "games"]
 
 [dependencies]
 ratatui = "=0.29.0"
