@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 # 🐾 Paws
 
-[![CI](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml/badge.svg)](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Works with Kaku & WezTerm](https://img.shields.io/badge/Works_with-Kaku_%26_WezTerm-blue)](https://wezfurlong.org/wezterm/) [![Made with Lua & Rust](https://img.shields.io/badge/Made_with-Lua_&_Rust-orange)]() [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/interesting-vibe-coding/paws/pulls) [![GitHub Stars](https://img.shields.io/github/stars/interesting-vibe-coding/paws?style=flat&color=yellow)](https://github.com/interesting-vibe-coding/paws/stargazers)
+[![CI](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml/badge.svg)](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Works with Kaku, WezTerm & iTerm2](https://img.shields.io/badge/Works_with-Kaku_%7C_WezTerm_%7C_iTerm2-blue)](https://github.com/interesting-vibe-coding/paws/blob/main/docs/iterm2-setup.md) [![Made with Lua & Rust](https://img.shields.io/badge/Made_with-Lua_&_Rust-orange)]() [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/interesting-vibe-coding/paws/pulls) [![GitHub Stars](https://img.shields.io/github/stars/interesting-vibe-coding/paws?style=flat&color=yellow)](https://github.com/interesting-vibe-coding/paws/stargazers)
 
 Play games while your AI agent works. A status HUD tells you when to come back.
 
@@ -50,9 +50,10 @@ cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin 
 cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin tetris
 ```
 
-Then add [`lua/paws.lua`](lua/paws.lua) to your terminal config (before `return config`) and wire hooks for your agent (see [`hooks/`](hooks/) for reference configs).
-- **Kaku:** `~/.config/kaku/kaku.lua` — reload with CMD+Shift+R
-- **WezTerm:** `~/.config/wezterm/wezterm.lua` — auto-reloads on save
+Then wire the terminal integration and hooks for your agent (see [`hooks/`](hooks/) for reference configs).
+- **Kaku:** add [`lua/paws.lua`](lua/paws.lua) to `~/.config/kaku/kaku.lua` before `return config` — reload with CMD+Shift+R
+- **WezTerm:** add [`lua/paws.lua`](lua/paws.lua) to `~/.config/wezterm/wezterm.lua` — auto-reloads on save
+- **iTerm2:** copy [`iterm2/paws.py`](iterm2/paws.py) to `~/.config/iterm2/scripts/AutoLaunch/` and bind 3 keys — see [docs/iterm2-setup.md](docs/iterm2-setup.md)
 
 ## Games
 

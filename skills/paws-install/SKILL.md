@@ -11,12 +11,13 @@ You are installing Paws for the user. Work from a local clone of this repo
 
 ## 0. Preconditions
 
-- Confirm the terminal is **Kaku** (`which kaku`) or **WezTerm** (`which wezterm`).
-  Both are supported — the same `lua/paws.lua` works in both without modification.
-  If neither is installed, ask the user to install one first and stop.
-- Determine the terminal type — it affects the config path in Step 2:
-  - Kaku: `~/.config/kaku/kaku.lua`
-  - WezTerm: `~/.config/wezterm/wezterm.lua`
+- Confirm the terminal is **Kaku** (`which kaku`), **WezTerm** (`which wezterm`),
+  or **iTerm2** (`ls /Applications/iTerm.app`). All three are supported.
+  If none is installed, ask the user to install one first and stop.
+- Determine the terminal type — it affects Step 2:
+  - Kaku: `~/.config/kaku/kaku.lua` (Lua config)
+  - WezTerm: `~/.config/wezterm/wezterm.lua` (Lua config)
+  - iTerm2: Python script + manual key bindings (see Step 2b)
 - Note the repo root (absolute path) — you'll need it for hook paths.
   **All hook paths in config files must be absolute** — `~` is not expanded
   by any of the three agents.
@@ -48,7 +49,7 @@ Any games not installed now can be installed later directly from the in-app
 game picker (uninstalled entries show "⤓ install" and run the install command
 on Enter).
 
-## 2. Merge the Lua into the terminal config
+## 2a. Merge the Lua into the terminal config (Kaku / WezTerm)
 
 The terminal config returns a `config` table at the end. The snippet to insert is
 `lua/paws.lua` from this repo — it works identically in Kaku and WezTerm.
@@ -64,6 +65,24 @@ Steps:
 - Ensure `config.keys` exists before the insert: if the config never sets it,
   add `config.keys = config.keys or {}` at the top of the inserted block.
 - Syntax-check afterward: `luac -p <config-path>` (if `luac` exists).
+
+## 2b. Install the Python script (iTerm2 only)
+
+Skip this step if the user is on Kaku or WezTerm.
+
+```bash
+mkdir -p ~/.config/iterm2/scripts/AutoLaunch
+cp <REPO>/iterm2/paws.py ~/.config/iterm2/scripts/AutoLaunch/paws.py
+```
+
+Then tell the user to:
+1. In iTerm2: **Scripts → AutoLaunch → paws.py** to load the script.
+2. Open **Settings → Keys → Key Bindings** and add three bindings:
+   - `Cmd+G` → Invoke Script Function → `paws_toggle()`
+   - `Cmd+Shift+P` → Invoke Script Function → `paws_picker()`
+   - `Cmd+H` → Invoke Script Function → `paws_help()`
+
+Full details: [docs/iterm2-setup.md](../../docs/iterm2-setup.md)
 
 ## 3. Wire the agent's state signals (for the status HUD)
 
