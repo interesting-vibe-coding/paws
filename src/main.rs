@@ -76,7 +76,10 @@ fn is_installed(cmd: &str) -> bool {
 }
 
 fn now_secs() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
 }
 
 fn pid_alive(pid: i32) -> bool {
@@ -111,7 +114,9 @@ fn save_rotate_hours(h: u64) {
 
 fn resolve_random(installed: &[&Game]) -> String {
     let bucket = now_secs() / (rotate_hours() * 3600);
-    installed[pick_index(bucket, installed.len().max(1))].cmd.clone()
+    installed[pick_index(bucket, installed.len().max(1))]
+        .cmd
+        .clone()
 }
 
 fn find_stable_ancestor() -> i32 {
@@ -119,27 +124,41 @@ fn find_stable_ancestor() -> i32 {
     for _ in 0..2 {
         let Ok(out) = std::process::Command::new("ps")
             .args(["-o", "ppid=", "-p", &pid.to_string()])
-            .output() else { break };
+            .output()
+        else {
+            break;
+        };
         let ppid: i32 = String::from_utf8_lossy(&out.stdout)
             .trim()
             .parse()
             .unwrap_or(0);
-        if ppid <= 1 { break; }
+        if ppid <= 1 {
+            break;
+        }
         pid = ppid;
     }
     pid
 }
 
 fn scan_pgrep(pattern: &str) -> Vec<i32> {
-    std::process::Command::new("pgrep").args(["-x", pattern]).output().ok()
-        .map(|o| String::from_utf8_lossy(&o.stdout).lines()
-            .filter_map(|l| l.trim().parse::<i32>().ok()).collect())
+    std::process::Command::new("pgrep")
+        .args(["-x", pattern])
+        .output()
+        .ok()
+        .map(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter_map(|l| l.trim().parse::<i32>().ok())
+                .collect()
+        })
         .unwrap_or_default()
 }
 
 fn get_ppid_of(pid: i32) -> i32 {
-    std::process::Command::new("ps").args(["-o", "ppid=", "-p", &pid.to_string()])
-        .output().ok()
+    std::process::Command::new("ps")
+        .args(["-o", "ppid=", "-p", &pid.to_string()])
+        .output()
+        .ok()
         .and_then(|o| String::from_utf8_lossy(&o.stdout).trim().parse().ok())
         .unwrap_or(0)
 }
@@ -161,7 +180,9 @@ fn handle_scan() -> io::Result<()> {
 
     for pattern in &["cfuse", "kiro-cli"] {
         for pid in scan_pgrep(pattern) {
-            if pid == my_pid || !pid_alive(pid) { continue; }
+            if pid == my_pid || !pid_alive(pid) {
+                continue;
+            }
             seen.insert(pid);
             write(&dir, pid, my_pid)?;
             count += 1;
@@ -169,9 +190,13 @@ fn handle_scan() -> io::Result<()> {
     }
 
     for pid in scan_pgrep("claude") {
-        if pid == my_pid || !pid_alive(pid) { continue; }
+        if pid == my_pid || !pid_alive(pid) {
+            continue;
+        }
         let ppid = get_ppid_of(pid);
-        if seen.contains(&ppid) || ppid <= 1 { continue; }
+        if seen.contains(&ppid) || ppid <= 1 {
+            continue;
+        }
         write(&dir, pid, my_pid)?;
         count += 1;
     }
@@ -216,7 +241,10 @@ fn main() -> io::Result<()> {
         println!("Paws game list:");
         for g in &games {
             let status = if is_installed(&g.cmd) { "✓" } else { "✗" };
-            println!("  [{status}] {:<14} cmd: {:<12} install: {}", g.name, g.cmd, g.install);
+            println!(
+                "  [{status}] {:<14} cmd: {:<12} install: {}",
+                g.name, g.cmd, g.install
+            );
         }
         return Ok(());
     }
@@ -280,7 +308,9 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
         if !event::poll(Duration::from_millis(120))? {
             continue;
         }
-        let Event::Key(key) = event::read()? else { continue };
+        let Event::Key(key) = event::read()? else {
+            continue;
+        };
         if key.kind != KeyEventKind::Press {
             continue;
         }
@@ -300,7 +330,11 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
             },
             Screen::Install => match key.code {
                 KeyCode::Up | KeyCode::Char('k') => {
-                    install_sel = if install_sel == 0 { games.len() - 1 } else { install_sel - 1 };
+                    install_sel = if install_sel == 0 {
+                        games.len() - 1
+                    } else {
+                        install_sel - 1
+                    };
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     install_sel = (install_sel + 1) % games.len();
@@ -322,7 +356,9 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
 
                         match status {
                             Ok(s) if s.success() => println!("\n  ✓ {} installed!", game.name),
-                            Ok(s) => println!("\n  ✗ Install failed (exit {})", s.code().unwrap_or(-1)),
+                            Ok(s) => {
+                                println!("\n  ✗ Install failed (exit {})", s.code().unwrap_or(-1))
+                            }
                             Err(e) => println!("\n  ✗ Install error: {e}"),
                         }
                         print!("  Press Enter to continue…");
@@ -339,7 +375,11 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
             },
             Screen::Menu => match key.code {
                 KeyCode::Up | KeyCode::Char('k') => {
-                    selected = if selected == 0 { menu_len - 1 } else { selected - 1 };
+                    selected = if selected == 0 {
+                        menu_len - 1
+                    } else {
+                        selected - 1
+                    };
                 }
                 KeyCode::Down | KeyCode::Char('j') => {
                     selected = (selected + 1) % menu_len;
@@ -372,7 +412,10 @@ fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
 
 fn draw_menu(f: &mut Frame, labels: &[String], selected: usize) {
     let area = f.area();
-    f.render_widget(Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))), area);
+    f.render_widget(
+        Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))),
+        area,
+    );
 
     let box_w = 44u16.min(area.width.saturating_sub(2));
     let box_h = (labels.len() as u16 + 9).min(area.height.saturating_sub(2));
@@ -382,7 +425,9 @@ fn draw_menu(f: &mut Frame, labels: &[String], selected: usize) {
         Line::raw(""),
         Line::from(Span::styled(
             "🐾  P A W S",
-            Style::default().fg(Color::Rgb(255, 200, 120)).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Rgb(255, 200, 120))
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
             "your agent's coffee break",
@@ -393,7 +438,12 @@ fn draw_menu(f: &mut Frame, labels: &[String], selected: usize) {
 
     for (i, label) in labels.iter().enumerate() {
         let (style, prefix) = if i == selected {
-            (Style::default().fg(Color::Rgb(255, 215, 140)).add_modifier(Modifier::BOLD), "▸  ")
+            (
+                Style::default()
+                    .fg(Color::Rgb(255, 215, 140))
+                    .add_modifier(Modifier::BOLD),
+                "▸  ",
+            )
         } else {
             (Style::default().fg(Color::Rgb(195, 175, 145)), "   ")
         };
@@ -422,7 +472,10 @@ fn draw_menu(f: &mut Frame, labels: &[String], selected: usize) {
 /// state. Installing happens here, inside Paws — the registry is the plugin index.
 fn draw_install(f: &mut Frame, games: &[Game], installed: &[bool], selected: usize) {
     let area = f.area();
-    f.render_widget(Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))), area);
+    f.render_widget(
+        Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))),
+        area,
+    );
 
     let box_w = 52u16.min(area.width.saturating_sub(2));
     let box_h = (games.len() as u16 + 11).min(area.height.saturating_sub(2));
@@ -432,7 +485,9 @@ fn draw_install(f: &mut Frame, games: &[Game], installed: &[bool], selected: usi
         Line::raw(""),
         Line::from(Span::styled(
             "⤓  Install games",
-            Style::default().fg(Color::Rgb(255, 200, 120)).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Rgb(255, 200, 120))
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
             "from the paws-games library",
@@ -442,10 +497,19 @@ fn draw_install(f: &mut Frame, games: &[Game], installed: &[bool], selected: usi
     ];
 
     for (i, g) in games.iter().enumerate() {
-        let marker = if installed[i] { "✓ installed" } else { "⤓ install" };
+        let marker = if installed[i] {
+            "✓ installed"
+        } else {
+            "⤓ install"
+        };
         let label = format!("{}  {}   {}", g.icon, g.name, marker);
         let (style, prefix) = if i == selected {
-            (Style::default().fg(Color::Rgb(255, 215, 140)).add_modifier(Modifier::BOLD), "▸  ")
+            (
+                Style::default()
+                    .fg(Color::Rgb(255, 215, 140))
+                    .add_modifier(Modifier::BOLD),
+                "▸  ",
+            )
         } else if installed[i] {
             (Style::default().fg(Color::Rgb(150, 170, 140)), "   ")
         } else {
@@ -477,7 +541,10 @@ fn draw_install(f: &mut Frame, games: &[Game], installed: &[bool], selected: usi
 
 fn draw_settings(f: &mut Frame, hours: u64) {
     let area = f.area();
-    f.render_widget(Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))), area);
+    f.render_widget(
+        Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))),
+        area,
+    );
 
     let content = centered_rect(44u16.min(area.width.saturating_sub(2)), 11, area);
     let plural = if hours == 1 { "hour" } else { "hours" };
@@ -485,7 +552,9 @@ fn draw_settings(f: &mut Frame, hours: u64) {
         Line::raw(""),
         Line::from(Span::styled(
             "⚙  Settings",
-            Style::default().fg(Color::Rgb(255, 200, 120)).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Rgb(255, 200, 120))
+                .add_modifier(Modifier::BOLD),
         )),
         Line::raw(""),
         Line::from(Span::styled(
@@ -494,7 +563,9 @@ fn draw_settings(f: &mut Frame, hours: u64) {
         )),
         Line::from(Span::styled(
             format!("every  {hours}  {plural}"),
-            Style::default().fg(Color::Rgb(255, 215, 140)).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Rgb(255, 215, 140))
+                .add_modifier(Modifier::BOLD),
         )),
         Line::raw(""),
         Line::from(Span::styled(
@@ -517,25 +588,30 @@ fn host_game(game_cmd: &str) -> io::Result<()> {
 
     let pty_system = NativePtySystem::default();
     let pair = pty_system
-        .openpty(PtySize { rows: grows, cols: gcols, pixel_width: 0, pixel_height: 0 })
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        .openpty(PtySize {
+            rows: grows,
+            cols: gcols,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|e| io::Error::other(e.to_string()))?;
 
     let mut cmd = CommandBuilder::new(game_cmd);
     cmd.env("TERM", "xterm-256color");
     let _child = pair
         .slave
         .spawn_command(cmd)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| io::Error::other(e.to_string()))?;
     drop(pair.slave);
 
     let mut pty_writer = pair
         .master
         .take_writer()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| io::Error::other(e.to_string()))?;
     let mut pty_reader = pair
         .master
         .try_clone_reader()
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+        .map_err(|e| io::Error::other(e.to_string()))?;
 
     let parser = Arc::new(Mutex::new(vt100::Parser::new(grows, gcols, 0)));
     let parser_clone = Arc::clone(&parser);
@@ -590,6 +666,7 @@ fn host_game(game_cmd: &str) -> io::Result<()> {
     result
 }
 
+#[allow(clippy::borrowed_box)]
 fn run_loop(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     parser: &Arc<Mutex<vt100::Parser>>,
@@ -598,11 +675,18 @@ fn run_loop(
 ) -> io::Result<()> {
     let (mut pcols, mut prows) = (0u16, 0u16);
     while running.load(Ordering::SeqCst) {
-        let sz = terminal.size().unwrap_or(ratatui::layout::Size::new(80, 25));
+        let sz = terminal
+            .size()
+            .unwrap_or(ratatui::layout::Size::new(80, 25));
         let gcols = sz.width.max(1);
         let grows = sz.height.saturating_sub(1).max(1);
         if gcols != pcols || grows != prows {
-            let _ = master.resize(PtySize { rows: grows, cols: gcols, pixel_width: 0, pixel_height: 0 });
+            let _ = master.resize(PtySize {
+                rows: grows,
+                cols: gcols,
+                pixel_width: 0,
+                pixel_height: 0,
+            });
             if let Ok(mut p) = parser.lock() {
                 p.set_size(grows, gcols);
             }
@@ -620,8 +704,16 @@ fn run_loop(
 
 fn draw_game(f: &mut Frame, parser: &Arc<Mutex<vt100::Parser>>, rows: u16, cols: u16) {
     let area = f.area();
-    let game_area = Rect::new(0, 1, cols.min(area.width), rows.min(area.height.saturating_sub(1)));
-    f.render_widget(Block::default().style(Style::default().bg(Color::Black)), game_area);
+    let game_area = Rect::new(
+        0,
+        1,
+        cols.min(area.width),
+        rows.min(area.height.saturating_sub(1)),
+    );
+    f.render_widget(
+        Block::default().style(Style::default().bg(Color::Black)),
+        game_area,
+    );
 
     let screen = parser.lock().unwrap();
     let mut lines: Vec<Line> = Vec::with_capacity(game_area.height as usize);
@@ -629,8 +721,14 @@ fn draw_game(f: &mut Frame, parser: &Arc<Mutex<vt100::Parser>>, rows: u16, cols:
         let mut spans: Vec<Span> = Vec::new();
         let mut col = 0u16;
         while col < game_area.width {
-            let Some(cell) = screen.screen().cell(row, col) else { break };
-            let ch = if cell.has_contents() { cell.contents() } else { " ".to_string() };
+            let Some(cell) = screen.screen().cell(row, col) else {
+                break;
+            };
+            let ch = if cell.has_contents() {
+                cell.contents()
+            } else {
+                " ".to_string()
+            };
             let mut style = Style::default()
                 .fg(vt_color_to_ratatui(cell.fgcolor()))
                 .bg(vt_color_to_ratatui(cell.bgcolor()));
@@ -653,12 +751,16 @@ fn draw_game(f: &mut Frame, parser: &Arc<Mutex<vt100::Parser>>, rows: u16, cols:
 }
 
 fn draw_hud(f: &mut Frame) {
-    let Ok(entries) = fs::read_dir(SESSIONS_DIR) else { return };
+    let Ok(entries) = fs::read_dir(SESSIONS_DIR) else {
+        return;
+    };
 
     let (mut running, mut done) = (0u16, 0u16);
     for entry in entries.flatten() {
         let path = entry.path();
-        let Ok(content) = fs::read_to_string(&path) else { continue };
+        let Ok(content) = fs::read_to_string(&path) else {
+            continue;
+        };
         let mut parts = content.split_whitespace();
         let state = parts.next().unwrap_or("");
         let pid: i32 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
@@ -703,7 +805,10 @@ fn draw_hud(f: &mut Frame) {
         lang::Lang::Ko => ("실행 중", "입력 대기"),
     };
 
-    let ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis();
+    let ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_millis();
     let mut spans = vec![Span::styled("🐾 ", Style::default())];
 
     if running > 0 {
@@ -711,14 +816,16 @@ fn draw_hud(f: &mut Frame) {
         let frame = SPIN[((ms / 80) % 10) as usize];
         spans.push(Span::styled(
             format!("{frame} {running} {working_label}"),
-            Style::default().fg(Color::Rgb(120, 200, 230)).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Rgb(120, 200, 230))
+                .add_modifier(Modifier::BOLD),
         ));
     }
     if running > 0 && done > 0 {
         spans.push(Span::raw("   "));
     }
     if done > 0 {
-        let fg = if (ms / 500) % 2 == 0 {
+        let fg = if (ms / 500).is_multiple_of(2) {
             Color::Rgb(245, 160, 50)
         } else {
             Color::Rgb(255, 245, 220)
@@ -761,7 +868,10 @@ mod tests {
     #[test]
     fn pick_index_deterministic() {
         assert_eq!(pick_index(19874, 3), pick_index(19874, 3));
-        assert_eq!((0..3).map(|d| pick_index(d, 3)).collect::<Vec<_>>(), vec![0, 1, 2]);
+        assert_eq!(
+            (0..3).map(|d| pick_index(d, 3)).collect::<Vec<_>>(),
+            vec![0, 1, 2]
+        );
     }
 
     #[test]

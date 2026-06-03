@@ -4,7 +4,7 @@
 
 # 🐾 Paws
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Built for Kaku](https://img.shields.io/badge/Built_for-Kaku-blue)](https://github.com/tw93/kaku) [![Made with Lua & Rust](https://img.shields.io/badge/Made_with-Lua_&_Rust-orange)]() [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/interesting-vibe-coding/paws/pulls) [![GitHub Stars](https://img.shields.io/github/stars/interesting-vibe-coding/paws?style=flat&color=yellow)](https://github.com/interesting-vibe-coding/paws/stargazers)
+[![CI](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml/badge.svg)](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Built for Kaku](https://img.shields.io/badge/Built_for-Kaku-blue)](https://github.com/tw93/kaku) [![Made with Lua & Rust](https://img.shields.io/badge/Made_with-Lua_&_Rust-orange)]() [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/interesting-vibe-coding/paws/pulls) [![GitHub Stars](https://img.shields.io/github/stars/interesting-vibe-coding/paws?style=flat&color=yellow)](https://github.com/interesting-vibe-coding/paws/stargazers)
 
 Agent 工作时尽情玩，需要你时一眼就看到。
 
@@ -67,6 +67,10 @@ cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin 
 Agent hook 把 session 状态写入 `/tmp/paws-sessions/` → Kaku Lua 处理 CMD+G（创建/切换标签页）→ `paws` 把游戏托管在 PTY 里并在顶行渲染 HUD。游戏是通过 [registry](registry.toml) 发现的独立二进制。
 
 架构详情见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+
+## 贡献
+
+想添加游戏或改进 Paws？请查看 [CONTRIBUTING.md](CONTRIBUTING.md)，里面有游戏二进制契约、registry 格式和 PR 检查清单。
 
 ---
 

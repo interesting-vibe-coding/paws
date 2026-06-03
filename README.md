@@ -4,7 +4,7 @@ English | [中文](README.zh.md)
 
 # 🐾 Paws
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Built for Kaku](https://img.shields.io/badge/Built_for-Kaku-blue)](https://github.com/tw93/kaku) [![Made with Lua & Rust](https://img.shields.io/badge/Made_with-Lua_&_Rust-orange)]() [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/interesting-vibe-coding/paws/pulls) [![GitHub Stars](https://img.shields.io/github/stars/interesting-vibe-coding/paws?style=flat&color=yellow)](https://github.com/interesting-vibe-coding/paws/stargazers)
+[![CI](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml/badge.svg)](https://github.com/interesting-vibe-coding/paws/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Built for Kaku](https://img.shields.io/badge/Built_for-Kaku-blue)](https://github.com/tw93/kaku) [![Made with Lua & Rust](https://img.shields.io/badge/Made_with-Lua_&_Rust-orange)]() [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/interesting-vibe-coding/paws/pulls) [![GitHub Stars](https://img.shields.io/github/stars/interesting-vibe-coding/paws?style=flat&color=yellow)](https://github.com/interesting-vibe-coding/paws/stargazers)
 
 Play games while your AI agent works. A status HUD tells you when to come back.
 
@@ -67,6 +67,10 @@ Don't see enough? Open **⤓ Install games** in the picker to browse the catalog
 Agent hooks write session state to `/tmp/paws-sessions/` → Kaku Lua handles CMD+G (spawns/toggles a tab) → the `paws` host runs the chosen game in a PTY and renders the HUD on the top row. Games are standalone binaries discovered via a [registry](registry.toml).
 
 For architecture details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Contributing
+
+Want to add a game or improve Paws? See [CONTRIBUTING.md](CONTRIBUTING.md) for the game binary contract, registry format, and PR checklist.
 
 ---
 

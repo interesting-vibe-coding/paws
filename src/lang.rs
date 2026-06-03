@@ -102,19 +102,30 @@ pub fn pick_interactive() -> io::Result<Lang> {
             let cy = area.y + area.height.saturating_sub(box_h) / 2;
             let content_area = Rect::new(cx, cy, box_w, box_h);
 
-            let mut lines = vec![Line::raw(""), Line::from(Span::styled(
-                "🐾 Choose language",
-                Style::default().fg(Color::Rgb(255, 230, 180)).add_modifier(Modifier::BOLD),
-            )), Line::raw("")];
+            let mut lines = vec![
+                Line::raw(""),
+                Line::from(Span::styled(
+                    "🐾 Choose language",
+                    Style::default()
+                        .fg(Color::Rgb(255, 230, 180))
+                        .add_modifier(Modifier::BOLD),
+                )),
+                Line::raw(""),
+            ];
 
             for (i, (_, label)) in OPTIONS.iter().enumerate() {
                 let style = if i == selected {
-                    Style::default().fg(Color::Rgb(120, 220, 160)).add_modifier(Modifier::BOLD)
+                    Style::default()
+                        .fg(Color::Rgb(120, 220, 160))
+                        .add_modifier(Modifier::BOLD)
                 } else {
                     Style::default().fg(Color::Rgb(160, 160, 180))
                 };
                 let prefix = if i == selected { "▸ " } else { "  " };
-                lines.push(Line::from(Span::styled(format!("{}{}", prefix, label), style)));
+                lines.push(Line::from(Span::styled(
+                    format!("{}{}", prefix, label),
+                    style,
+                )));
             }
 
             lines.push(Line::raw(""));
@@ -123,11 +134,11 @@ pub fn pick_interactive() -> io::Result<Lang> {
                 Style::default().fg(Color::Rgb(100, 100, 120)),
             )));
 
-            let para = Paragraph::new(lines)
-                .alignment(Alignment::Center)
-                .block(Block::default().borders(Borders::ALL).border_style(
-                    Style::default().fg(Color::Rgb(80, 80, 120)),
-                ));
+            let para = Paragraph::new(lines).alignment(Alignment::Center).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Rgb(80, 80, 120))),
+            );
             f.render_widget(para, content_area);
         })?;
 
@@ -138,7 +149,11 @@ pub fn pick_interactive() -> io::Result<Lang> {
                 }
                 match key.code {
                     KeyCode::Up => {
-                        selected = if selected == 0 { OPTIONS.len() - 1 } else { selected - 1 };
+                        selected = if selected == 0 {
+                            OPTIONS.len() - 1
+                        } else {
+                            selected - 1
+                        };
                     }
                     KeyCode::Down => {
                         selected = (selected + 1) % OPTIONS.len();
