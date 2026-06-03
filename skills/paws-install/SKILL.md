@@ -20,18 +20,29 @@ You are installing Paws for the user. Work from a local clone of this repo
 ## 1. Build paws and install games
 
 The game tab runs `paws`, a tiny Rust launcher that shows a centered menu of
-installed games (plus 🎲 Random rotation and a ⚙ Settings screen). Build it and
-install some games:
+games (installed and uninstalled, with one-click install from the picker). Build
+it and install at least one game to start:
 
 ```bash
 cargo install --path .                                          # builds `paws` onto PATH
-cargo install --git https://github.com/MisterBrookT/paws-games  # Dog Jump, Pinball, Earth Online, Poetry
-brew install vitetris                                           # optional: Tetris
+cargo install --git https://github.com/MisterBrookT/paws-games --bin jump-high    # Dog Jump
+cargo install --git https://github.com/MisterBrookT/paws-games --bin earth-online # Earth Online
+cargo install --git https://github.com/MisterBrookT/paws-games --bin tetris       # Tetris
 paws --list                                                     # confirm which games are detected
 ```
 
+**Alternatively**, install via Homebrew (builds from HEAD):
+
+```bash
+brew install --HEAD interesting-vibe-coding/paws/paws
+brew install --HEAD interesting-vibe-coding/paws/paws-games
+```
+
 If `cargo` is missing, point the user to https://rustup.rs first.
-The two `cargo install` commands are independent — run them in parallel to save time.
+The game install commands are independent — run them in parallel to save time.
+Any games not installed now can be installed later directly from the in-app
+game picker (uninstalled entries show "⤓ install" and run the install command
+on Enter).
 
 ## 2. Merge the Lua into the Kaku config
 

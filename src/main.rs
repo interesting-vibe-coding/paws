@@ -2,7 +2,7 @@ mod lang;
 
 use std::env;
 use std::fs;
-use std::io::{self, Read, Write};
+use std::io::{self, BufRead, Read, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -28,26 +28,47 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
     Frame, Terminal,
 };
+use serde::Deserialize;
 
 const SESSIONS_DIR: &str = "/tmp/paws-sessions";
 const POLL_MS: u64 = 33;
 const STALE_SECS: u64 = 2 * 3600;
 const DEFAULT_ROTATE_HOURS: u64 = 5;
 
+const BUNDLED_REGISTRY: &str = include_str!("../registry.toml");
+
+#[derive(Deserialize, Clone)]
 struct Game {
-    name: &'static str,
-    cmd: &'static str,
-    icon: &'static str,
-    brew_hint: &'static str,
+    #[allow(dead_code)]
+    id: String,
+    name: String,
+    icon: String,
+    cmd: String,
+    install: String,
+    #[allow(dead_code)]
+    description: String,
 }
 
-const GAMES: &[Game] = &[
-    Game { name: "Tetris", cmd: "tetris", icon: "🎮", brew_hint: "brew install vitetris" },
-    Game { name: "Dog Jump", cmd: "jump-high", icon: "🎮", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
-    Game { name: "Pinball", cmd: "pinball", icon: "🎮", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
-    Game { name: "Earth Online", cmd: "earth-online", icon: "🌍", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
-    Game { name: "Poetry", cmd: "poetry", icon: "📖", brew_hint: "cargo install --git https://github.com/MisterBrookT/paws-games" },
-];
+#[derive(Deserialize)]
+struct Registry {
+    game: Vec<Game>,
+}
+
+fn load_registry() -> Vec<Game> {
+    let user_path = dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".config/paws/registry.toml");
+    if user_path.exists() {
+        if let Ok(content) = fs::read_to_string(&user_path) {
+            if let Ok(reg) = toml::from_str::<Registry>(&content) {
+                return reg.game;
+            }
+        }
+    }
+    toml::from_str::<Registry>(BUNDLED_REGISTRY)
+        .map(|r| r.game)
+        .unwrap_or_default()
+}
 
 fn is_installed(cmd: &str) -> bool {
     env::var_os("PATH")
@@ -59,7 +80,6 @@ fn now_secs() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 
-/// True if the process is still running (used to count only live agent sessions).
 fn pid_alive(pid: i32) -> bool {
     pid > 0 && unsafe { libc::kill(pid, 0) } == 0
 }
@@ -90,10 +110,9 @@ fn save_rotate_hours(h: u64) {
     let _ = fs::write(path, h.clamp(1, 24).to_string());
 }
 
-/// Pick a game for "Random", rotating by the user-configured interval.
 fn resolve_random(installed: &[&Game]) -> String {
     let bucket = now_secs() / (rotate_hours() * 3600);
-    installed[pick_index(bucket, installed.len().max(1))].cmd.to_string()
+    installed[pick_index(bucket, installed.len().max(1))].cmd.clone()
 }
 
 fn find_stable_ancestor() -> i32 {
@@ -186,6 +205,8 @@ fn main() -> io::Result<()> {
         _ => {}
     }
 
+    let games = load_registry();
+
     let list_mode = env::args().any(|a| a == "--list");
 
     if !list_mode && !lang::is_set() {
@@ -194,28 +215,19 @@ fn main() -> io::Result<()> {
 
     if list_mode {
         println!("Paws game list:");
-        for g in GAMES {
-            let status = if is_installed(g.cmd) { "✓" } else { "✗" };
-            println!("  [{status}] {:<14} cmd: {:<12} install: {}", g.name, g.cmd, g.brew_hint);
+        for g in &games {
+            let status = if is_installed(&g.cmd) { "✓" } else { "✗" };
+            println!("  [{status}] {:<14} cmd: {:<12} install: {}", g.name, g.cmd, g.install);
         }
         return Ok(());
     }
 
-    let installed: Vec<&Game> = GAMES.iter().filter(|g| is_installed(g.cmd)).collect();
-
-    // Game choice: explicit arg (e.g. `paws jump-high`), else the centered menu.
     let explicit = env::args().nth(1).filter(|a| !a.starts_with('-'));
     let game_cmd: String = if let Some(cmd) = explicit {
         cmd
     } else {
-        if installed.is_empty() {
-            println!("🐾 No games installed yet. Install one to play:");
-            for g in GAMES {
-                println!("  {} → {}", g.name, g.brew_hint);
-            }
-            return Ok(());
-        }
-        match pick_game_menu(&installed)? {
+        // Always open the picker — uninstalled games can be installed from it.
+        match pick_game_menu(&games)? {
             Some(cmd) => cmd,
             None => return Ok(()),
         }
@@ -224,30 +236,7 @@ fn main() -> io::Result<()> {
     host_game(&game_cmd)
 }
 
-/// Centered, keyboard-driven menu: games + Random + Settings. Returns the chosen
-/// game command, or None if the user backed out.
-fn pick_game_menu(installed: &[&Game]) -> io::Result<Option<String>> {
-    enum Item {
-        Game(&'static str, String, String),
-        Random,
-        Settings,
-    }
-    let mut items: Vec<Item> = installed
-        .iter()
-        .map(|g| Item::Game(g.icon, g.name.to_string(), g.cmd.to_string()))
-        .collect();
-    items.push(Item::Random);
-    items.push(Item::Settings);
-
-    let labels: Vec<String> = items
-        .iter()
-        .map(|it| match it {
-            Item::Game(icon, name, _) => format!("{icon}  {name}"),
-            Item::Random => "🎲  Random".to_string(),
-            Item::Settings => "⚙   Settings".to_string(),
-        })
-        .collect();
-
+fn pick_game_menu(games: &[Game]) -> io::Result<Option<String>> {
     enable_raw_mode()?;
     io::stdout().execute(EnterAlternateScreen)?;
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
@@ -256,12 +245,31 @@ fn pick_game_menu(installed: &[&Game]) -> io::Result<Option<String>> {
     let mut in_settings = false;
     let mut hours = rotate_hours();
 
+    // Build labels and installed status
+    let mut installed_flags: Vec<bool> = games.iter().map(|g| is_installed(&g.cmd)).collect();
+
+    let build_labels = |games: &[Game], flags: &[bool]| -> Vec<String> {
+        let mut labels: Vec<String> = games.iter().zip(flags.iter()).map(|(g, &inst)| {
+            if inst {
+                format!("{}  {}", g.icon, g.name)
+            } else {
+                format!("{}  {} ⤓ install", g.icon, g.name)
+            }
+        }).collect();
+        labels.push("🎲  Random".to_string());
+        labels.push("⚙   Settings".to_string());
+        labels
+    };
+
+    let mut labels = build_labels(games, &installed_flags);
+    let game_count = games.len();
+
     let result = loop {
         terminal.draw(|f| {
             if in_settings {
                 draw_settings(f, hours);
             } else {
-                draw_menu(f, &labels, selected);
+                draw_menu(f, &labels, &installed_flags, selected);
             }
             draw_hud(f);
         })?;
@@ -297,11 +305,54 @@ fn pick_game_menu(installed: &[&Game]) -> io::Result<Option<String>> {
             KeyCode::Down | KeyCode::Char('j') => {
                 selected = (selected + 1) % labels.len();
             }
-            KeyCode::Enter | KeyCode::Char(' ') => match &items[selected] {
-                Item::Game(_, _, cmd) => break Some(cmd.clone()),
-                Item::Random => break Some(resolve_random(installed)),
-                Item::Settings => in_settings = true,
-            },
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                if selected < game_count {
+                    if installed_flags[selected] {
+                        break Some(games[selected].cmd.clone());
+                    } else {
+                        // Install the game
+                        let game = &games[selected];
+                        disable_raw_mode()?;
+                        io::stdout().execute(LeaveAlternateScreen)?;
+
+                        println!("\n  Installing {}…", game.name);
+                        println!("  $ {}\n", game.install);
+
+                        let status = std::process::Command::new("sh")
+                            .arg("-c")
+                            .arg(&game.install)
+                            .status();
+
+                        match status {
+                            Ok(s) if s.success() => println!("\n  ✓ {} installed successfully!", game.name),
+                            Ok(s) => println!("\n  ✗ Install failed (exit {})", s.code().unwrap_or(-1)),
+                            Err(e) => println!("\n  ✗ Install error: {e}"),
+                        }
+                        print!("  Press Enter to continue…");
+                        let _ = io::stdout().flush();
+                        let _ = io::stdin().lock().read_line(&mut String::new());
+
+                        // Re-enter TUI
+                        enable_raw_mode()?;
+                        io::stdout().execute(EnterAlternateScreen)?;
+                        terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
+
+                        // Re-scan PATH
+                        installed_flags = games.iter().map(|g| is_installed(&g.cmd)).collect();
+                        labels = build_labels(games, &installed_flags);
+                    }
+                } else if selected == game_count {
+                    // Random — among installed only
+                    let installed: Vec<&Game> = games.iter()
+                        .filter(|g| is_installed(&g.cmd))
+                        .collect();
+                    if !installed.is_empty() {
+                        break Some(resolve_random(&installed));
+                    }
+                } else {
+                    in_settings = true;
+                }
+            }
             KeyCode::Esc | KeyCode::Char('q') => break None,
             _ => {}
         }
@@ -312,7 +363,7 @@ fn pick_game_menu(installed: &[&Game]) -> io::Result<Option<String>> {
     Ok(result)
 }
 
-fn draw_menu(f: &mut Frame, labels: &[String], selected: usize) {
+fn draw_menu(f: &mut Frame, labels: &[String], installed_flags: &[bool], selected: usize) {
     let area = f.area();
     f.render_widget(Block::default().style(Style::default().bg(Color::Rgb(56, 41, 28))), area);
 
@@ -334,8 +385,17 @@ fn draw_menu(f: &mut Frame, labels: &[String], selected: usize) {
     ];
 
     for (i, label) in labels.iter().enumerate() {
+        let is_game = i < installed_flags.len();
+        let dimmed = is_game && !installed_flags[i];
+
         let (style, prefix) = if i == selected {
-            (Style::default().fg(Color::Rgb(255, 215, 140)).add_modifier(Modifier::BOLD), "▸  ")
+            if dimmed {
+                (Style::default().fg(Color::Rgb(180, 160, 120)).add_modifier(Modifier::BOLD), "▸  ")
+            } else {
+                (Style::default().fg(Color::Rgb(255, 215, 140)).add_modifier(Modifier::BOLD), "▸  ")
+            }
+        } else if dimmed {
+            (Style::default().fg(Color::Rgb(130, 115, 95)), "   ")
         } else {
             (Style::default().fg(Color::Rgb(195, 175, 145)), "   ")
         };
@@ -398,7 +458,7 @@ fn draw_settings(f: &mut Frame, hours: u64) {
 fn host_game(game_cmd: &str) -> io::Result<()> {
     let (tcols, trows) = term_size().unwrap_or((80, 25));
     let gcols = tcols.max(20);
-    let grows = trows.saturating_sub(1).max(10); // reserve the top row for the HUD
+    let grows = trows.saturating_sub(1).max(10);
 
     let pty_system = NativePtySystem::default();
     let pair = pty_system
@@ -438,7 +498,6 @@ fn host_game(game_cmd: &str) -> io::Result<()> {
         running_reader.store(false, Ordering::SeqCst);
     });
 
-    // Enable the kitty protocol ONLY for jump-high (needs real key-release).
     enable_raw_mode()?;
     let kitty = game_cmd == "jump-high" && supports_keyboard_enhancement().unwrap_or(false);
     if kitty {
@@ -447,7 +506,6 @@ fn host_game(game_cmd: &str) -> io::Result<()> {
         ));
     }
 
-    // Raw stdin → PTY passthrough (preserves key-repeat / kitty sequences).
     std::thread::spawn(move || {
         let mut stdin = io::stdin();
         let mut buf = [0u8; 1024];
@@ -507,8 +565,6 @@ fn run_loop(
 
 fn draw_game(f: &mut Frame, parser: &Arc<Mutex<vt100::Parser>>, rows: u16, cols: u16) {
     let area = f.area();
-    // Game fills the screen below the HUD row; only this region gets a dark fill,
-    // so the HUD row keeps the terminal's own background (no black block).
     let game_area = Rect::new(0, 1, cols.min(area.width), rows.min(area.height.saturating_sub(1)));
     f.render_widget(Block::default().style(Style::default().bg(Color::Black)), game_area);
 
@@ -553,20 +609,16 @@ fn draw_hud(f: &mut Frame) {
         let pid: i32 = parts.next().and_then(|s| s.parse().ok()).unwrap_or(0);
 
         if pid > 0 {
-            // Closed session → process is gone: clean up and skip.
             if !pid_alive(pid) {
                 let _ = fs::remove_file(&path);
                 continue;
             }
-            // Live session: "done" = waiting, anything else (incl. a transient
-            // write) = running, so a session never blinks out of the counts.
             if state == "done" {
                 done += 1;
             } else {
                 running += 1;
             }
         } else {
-            // Legacy file without a PID: fall back to mtime staleness.
             let stale = entry
                 .metadata()
                 .ok()
@@ -600,7 +652,6 @@ fn draw_hud(f: &mut Frame) {
     let mut spans = vec![Span::styled("🐾 ", Style::default())];
 
     if running > 0 {
-        // Animated spinner: motion = "still working".
         const SPIN: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
         let frame = SPIN[((ms / 80) % 10) as usize];
         spans.push(Span::styled(
@@ -612,7 +663,6 @@ fn draw_hud(f: &mut Frame) {
         spans.push(Span::raw("   "));
     }
     if done > 0 {
-        // Settled (no motion) + gentle flash: "it's your turn".
         let fg = if (ms / 500) % 2 == 0 {
             Color::Rgb(245, 160, 50)
         } else {
@@ -663,5 +713,14 @@ mod tests {
     fn centered_rect_works() {
         let r = centered_rect(80, 24, Rect::new(0, 0, 100, 40));
         assert_eq!((r.x, r.y, r.width, r.height), (10, 8, 80, 24));
+    }
+
+    #[test]
+    fn load_registry_parses_bundled() {
+        let games = load_registry();
+        assert_eq!(games.len(), 3);
+        assert_eq!(games[0].cmd, "jump-high");
+        assert_eq!(games[1].cmd, "earth-online");
+        assert_eq!(games[2].cmd, "tetris");
     }
 }

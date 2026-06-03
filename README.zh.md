@@ -12,47 +12,61 @@ Agent 工作时尽情玩，需要你时一眼就看到。
 
 <p align="center"><img src="docs/demo.gif" width="600" alt="Paws demo"></p>
 
-AI 编程 Agent 的终端伴侣。按 CMD+G 选一个游戏，在全窗口标签页里玩。游戏内有实时状态栏，显示哪些 session 在跑、哪些已完成，完成时会闪烁提醒——你想切回去时再切。
+AI 编程 Agent 的终端伴侣。按 CMD+G 选一个游戏，在全窗口标签页里玩。游戏顶行叠加实时状态栏，显示哪些 session 在跑、哪些已完成并闪烁提醒——你想切回去时再切。
 
 ## 使用
 
 | 按键 | 功能 |
 |------|------|
-| **CMD+G** | 首次：选择游戏；之后：在 Agent ↔ 游戏间切换 |
+| **CMD+G** | 首次：打开游戏选择菜单；之后：在 Agent ↔ 游戏间切换 |
 | **CMD+SHIFT+P** | 重新打开菜单，换游戏 |
+| **CMD+H** | 在浏览器中打开 Paws 仓库 |
 
-HUD 显示 session 状态（运行中 / 已完成），完成时闪烁。不会自动切换。
+HUD 显示 session 状态（运行中 / 已完成），完成时闪烁。不会自动切换——主动权在你。
 
 ## 安装
 
-**让你的 Agent 来装：**
+### 1. 让你的 Agent 来装（推荐）
 
 > "用 `paws/skills/paws-install/SKILL.md` 里的 skill 安装 Paws。"
 
 支持 **Kiro CLI**、**Claude Code** 和 **Codex CLI** —— 各 Agent 的配置详见 [安装 skill](skills/paws-install/SKILL.md)。
 
-**手动方式：**
+### 2. Homebrew
 
-1. `cargo install --path .`
-2. `cargo install --git https://github.com/MisterBrookT/paws-games` + 可选 `brew install vitetris`
-3. 将 [`lua/paws.lua`](lua/paws.lua) 添加到 `~/.config/kaku/kaku.lua`（`return config` 之前）。
-4. 为你的 Agent 配置 hooks（参考 [`hooks/`](hooks/) 目录）：
-   - **Kiro**：`hooks/kiro/paws-signal.sh busy|done` 作为 `userPromptSubmit`/`stop` hooks
-   - **Claude Code**：`hooks/paws-hook.sh` 作为 `UserPromptSubmit`/`Stop` hooks，写入 `~/.claude/settings.json`
-   - **Codex CLI**：`hooks/paws-hook.sh` 作为 `PreToolUse`/`Stop` hooks，写入 `~/.codex/config.toml`
-5. 重载 Kaku（CMD+Shift+R），按 CMD+G。
+```bash
+brew install --HEAD interesting-vibe-coding/paws/paws       # paws 本体
+brew install --HEAD interesting-vibe-coding/paws/paws-games  # 三个游戏
+```
 
-也可以手动发信号：`paws signal busy` / `paws signal done` —— 适合初次 bootstrap 或不支持 hook 的 Agent。
+正式的 `brew tap interesting-vibe-coding/paws && brew install paws` 需要打 release tag 后才可用——详见 [Formula/README.md](Formula/README.md)。
+
+### 3. 手动安装
+
+```bash
+cargo install --path .                                       # 编译 paws
+cargo install --git https://github.com/MisterBrookT/paws-games --bin jump-high
+cargo install --git https://github.com/MisterBrookT/paws-games --bin earth-online
+cargo install --git https://github.com/MisterBrookT/paws-games --bin tetris
+```
+
+然后将 [`lua/paws.lua`](lua/paws.lua) 添加到 `~/.config/kaku/kaku.lua`（`return config` 之前），并为你的 Agent 配置 hooks（参考 [`hooks/`](hooks/) 目录）。重载 Kaku（CMD+Shift+R）。
 
 ## 游戏
 
-Tetris · [Dog Jump](https://github.com/MisterBrookT/paws-games) · Pinball（弹球）· 🌍 地球Online（现实世界支线任务）· 诗（Poetry）· 🎲 随机轮换
+| 游戏 | 二进制 | 说明 |
+|------|--------|------|
+| 🐕 Dog Jump | `jump-high` | Jump King 风格平台跳跃——蓄力、瞄准、听天由命 |
+| 🌍 Earth Online | `earth-online` | Agent 工作时的现实世界支线任务 |
+| 🧱 Tetris | `tetris` | 经典方块消除，带等级和计分 |
+
+不够玩？直接在游戏选择菜单里安装更多——未安装的游戏会显示一键安装选项。浏览社区游戏库：[paws-games](https://github.com/MisterBrookT/paws-games)。
 
 ## 工作原理
 
-Hook 把 session 状态写入 `/tmp/paws-sessions/` → Kaku Lua 处理 CMD+G（通过 `wezterm.mux` 创建/切换标签页）→ `paws` wrapper 把游戏居中托管在 PTY 里并渲染实时 HUD。
+Agent hook 把 session 状态写入 `/tmp/paws-sessions/` → Kaku Lua 处理 CMD+G（创建/切换标签页）→ `paws` 把游戏托管在 PTY 里并在顶行渲染 HUD。游戏是通过 [registry](registry.toml) 发现的独立二进制。
 
-一切运行在终端自身的 Lua 层。没有外部脚本，没有自动切换。主动权在你。
+架构详情见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
 ---
 

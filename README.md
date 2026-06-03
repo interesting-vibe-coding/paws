@@ -12,47 +12,61 @@ Play games while your AI agent works. A status HUD tells you when to come back.
 
 <p align="center"><img src="docs/demo.gif" width="600" alt="Paws demo"></p>
 
-A terminal companion for AI coding agents. You press CMD+G, pick a game, and play in a full-window tab while your agent thinks. A live HUD inside the game shows which sessions are running and flashes when one finishes — you switch back when you're ready.
+A terminal companion for AI coding agents. Press CMD+G, pick a game, and play in a full-window tab while your agent thinks. A live HUD overlaid on the top row shows which sessions are running and flashes when one finishes — you switch back when you're ready.
 
 ## Use
 
 | Key | Action |
 |-----|--------|
-| **CMD+G** | First press: pick a game. After that: toggle agent ↔ game. |
+| **CMD+G** | First press: open the game picker. After that: toggle agent ↔ game. |
 | **CMD+SHIFT+P** | Re-open the picker to change game. |
+| **CMD+H** | Open the Paws repo in your browser. |
 
-The HUD shows session state (running / done) and flashes on completion. No auto-switching.
+The HUD shows session state (running / done) and flashes on completion. No auto-switching — you stay in control.
 
 ## Install
 
-**Let your agent do it:**
+### 1. Let your agent do it (recommended)
 
 > "Install Paws using the skill in `paws/skills/paws-install/SKILL.md`."
 
 Supports **Kiro CLI**, **Claude Code**, and **Codex CLI** — see the [install skill](skills/paws-install/SKILL.md) for per-agent setup.
 
-**Manual fallback:**
+### 2. Homebrew
 
-1. `cargo install --path .`
-2. `cargo install --git https://github.com/MisterBrookT/paws-games` + optionally `brew install vitetris`
-3. Add [`lua/paws.lua`](lua/paws.lua) to your `~/.config/kaku/kaku.lua` (before `return config`).
-4. Wire hooks for your agent (see [`hooks/`](hooks/) for reference configs):
-   - **Kiro**: `hooks/kiro/paws-signal.sh busy|done` as `userPromptSubmit`/`stop` hooks
-   - **Claude Code**: `hooks/paws-hook.sh` as `UserPromptSubmit`/`Stop` hooks in `~/.claude/settings.json`
-   - **Codex CLI**: `hooks/paws-hook.sh` as `PreToolUse`/`Stop` hooks in `~/.codex/config.toml`
-5. Reload Kaku (CMD+Shift+R), press CMD+G.
+```bash
+brew install --HEAD interesting-vibe-coding/paws/paws       # the paws binary
+brew install --HEAD interesting-vibe-coding/paws/paws-games  # all three games
+```
 
-You can also signal manually: `paws signal busy` / `paws signal done` — useful for bootstrapping or agents without hook support.
+Full `brew tap interesting-vibe-coding/paws && brew install paws` is pending a tagged release — see [Formula/README.md](Formula/README.md) for details.
+
+### 3. Manual
+
+```bash
+cargo install --path .                                       # build paws
+cargo install --git https://github.com/MisterBrookT/paws-games --bin jump-high
+cargo install --git https://github.com/MisterBrookT/paws-games --bin earth-online
+cargo install --git https://github.com/MisterBrookT/paws-games --bin tetris
+```
+
+Then add [`lua/paws.lua`](lua/paws.lua) to your `~/.config/kaku/kaku.lua` (before `return config`) and wire hooks for your agent (see [`hooks/`](hooks/) for reference configs). Reload Kaku (CMD+Shift+R).
 
 ## Games
 
-Tetris · [Dog Jump](https://github.com/MisterBrookT/paws-games) · Pinball · Earth Online (real-life side quests) · Poetry · 🎲 Random rotation
+| Game | Binary | Description |
+|------|--------|-------------|
+| 🐕 Dog Jump | `jump-high` | Jump King-style platformer — charge, aim, and pray |
+| 🌍 Earth Online | `earth-online` | Real-life side quests to run while your agent works |
+| 🧱 Tetris | `tetris` | Classic block-stacking with levels and scoring |
+
+Don't see enough? Install more games right from the in-app picker — uninstalled games show a one-click install option. Browse the community game library at [paws-games](https://github.com/MisterBrookT/paws-games).
 
 ## How it works
 
-Hook writes session state to `/tmp/paws-sessions/` → Kaku Lua handles CMD+G (spawns/toggles a tab via `wezterm.mux`) → the `paws` wrapper hosts the game centered in a PTY and renders the live HUD.
+Agent hooks write session state to `/tmp/paws-sessions/` → Kaku Lua handles CMD+G (spawns/toggles a tab) → the `paws` host runs the chosen game in a PTY and renders the HUD on the top row. Games are standalone binaries discovered via a [registry](registry.toml).
 
-Everything runs natively in the terminal's Lua layer. No external scripts, no auto-switching. You stay in control.
+For architecture details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 

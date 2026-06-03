@@ -1,0 +1,28 @@
+# Paws game registry — the index of games the picker can show and install.
+# Each game is a standalone terminal binary on your PATH. To add yours see
+# https://github.com/MisterBrookT/paws-games (CONTRIBUTING.md) and add an entry here.
+# A user override at ~/.config/paws/registry.toml fully replaces this list.
+
+[[game]]
+id = "jump-high"
+name = "Dog Jump"
+icon = "🐕"
+cmd = "jump-high"
+install = "cargo install --git https://github.com/MisterBrookT/paws-games --bin jump-high"
+description = "Jump King-style platformer — one dog, gravity, no mercy."
+
+[[game]]
+id = "earth-online"
+name = "Earth Online"
+icon = "🌍"
+cmd = "earth-online"
+install = "cargo install --git https://github.com/MisterBrookT/paws-games --bin earth-online"
+description = "Real-life side quests to run while your agent works."
+
+[[game]]
+id = "tetris"
+name = "Tetris"
+icon = "🧱"
+cmd = "tetris"
+install = "cargo install --git https://github.com/MisterBrookT/paws-games --bin tetris"
+description = "The classic — clear lines, chase the drop."
