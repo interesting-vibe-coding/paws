@@ -26,3 +26,19 @@ icon = "🧱"
 cmd = "tetris"
 install = "cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin tetris"
 description = "The classic — clear lines, chase the drop."
+
+[[game]]
+id = "snake"
+name = "Snake"
+icon = "🐍"
+cmd = "snake"
+install = "cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin snake"
+description = "Eat, grow, don't bite yourself. Speed scales with score."
+
+[[game]]
+id = "2048"
+name = "2048"
+icon = "🎮"
+cmd = "2048"
+install = "cargo install --git https://github.com/interesting-vibe-coding/paws-games --bin 2048"
+description = "Slide tiles, merge numbers, reach 2048."
