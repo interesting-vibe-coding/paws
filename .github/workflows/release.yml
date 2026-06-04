@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag name for the release (e.g. v0.4.0)'
+        description: 'Tag name for the release (e.g. v0.5.0)'
         required: true
-        default: 'v0.4.0'
+        default: 'v0.5.0'
 
 env:
   CARGO_TERM_COLOR: always
@@ -60,6 +60,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          TAG="${{ github.event.inputs.tag_name || github.ref_name }}"
+          # Extract the section between this version header and the next
+          BODY=$(awk "/^## \\[${TAG}\\]/,/^## \\[v/" CHANGELOG.md \
+            | grep -v "^## \\[v" | sed '/^$/d' | head -40)
+          if [ -z "$BODY" ]; then
+            BODY="See [CHANGELOG.md](https://github.com/interesting-vibe-coding/paws/blob/main/CHANGELOG.md) for details."
+          fi
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -70,7 +84,7 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
           target_commitish: ${{ github.sha }}
+          body: ${{ steps.changelog.outputs.body }}
           files: artifacts/**/*
-          generate_release_notes: true
           draft: false
           prerelease: false
